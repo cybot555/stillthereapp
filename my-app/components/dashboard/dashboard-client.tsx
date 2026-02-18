@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { CalendarCheck2, Clock3, Plus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/browser';
-import { endSessionAction } from '@/lib/actions/dashboard';
+import { endSessionAction, setSessionPauseAction } from '@/lib/actions/dashboard';
 import { AttendanceRecord, Session } from '@/lib/types/app';
 import { ActionTile } from '@/components/dashboard/action-tile';
 import { AttendanceList } from '@/components/dashboard/attendance-list';
@@ -13,7 +13,6 @@ import { EmptyQrCard } from '@/components/dashboard/empty-qr-card';
 import { QrPanel } from '@/components/dashboard/qr-panel';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { StatusPill } from '@/components/ui/status-pill';
 import { formatSchedule } from '@/lib/utils';
 
 type DashboardClientProps = {
@@ -27,7 +26,13 @@ export function DashboardClient({ fullName, activeSession, initialAttendance }: 
   const [showCreatePanel, setShowCreatePanel] = useState(false);
   const [attendance, setAttendance] = useState(initialAttendance);
   const [feedback, setFeedback] = useState('');
+  const [sessionState, setSessionState] = useState<Session | null>(activeSession);
   const [ending, startEnding] = useTransition();
+  const [updatingPause, startUpdatingPause] = useTransition();
+
+  useEffect(() => {
+    setSessionState(activeSession);
+  }, [activeSession]);
 
   useEffect(() => {
     setAttendance(initialAttendance);
@@ -69,12 +74,12 @@ export function DashboardClient({ fullName, activeSession, initialAttendance }: 
   }, [activeSession]);
 
   const schedule = useMemo(() => {
-    if (!activeSession) {
+    if (!sessionState) {
       return '';
     }
 
-    return formatSchedule(activeSession.date, activeSession.start_time, activeSession.end_time);
-  }, [activeSession]);
+    return formatSchedule(sessionState.date, sessionState.start_time, sessionState.end_time);
+  }, [sessionState]);
 
   function handleCompleteCreate(message: string) {
     setShowCreatePanel(false);
@@ -83,17 +88,45 @@ export function DashboardClient({ fullName, activeSession, initialAttendance }: 
   }
 
   function handleEndSession() {
-    if (!activeSession) {
+    if (!sessionState) {
       return;
     }
 
+    const currentSession = sessionState;
+
     startEnding(async () => {
-      const result = await endSessionAction(activeSession.id);
+      const result = await endSessionAction(currentSession.id);
       setFeedback(result.message);
 
       if (result.ok) {
         router.refresh();
       }
+    });
+  }
+
+  function handleTogglePause() {
+    if (!sessionState || sessionState.status !== 'active') {
+      return;
+    }
+
+    const nextPaused = !sessionState.is_paused;
+    const previous = sessionState;
+
+    setSessionState({
+      ...sessionState,
+      is_paused: nextPaused
+    });
+
+    startUpdatingPause(async () => {
+      const result = await setSessionPauseAction(sessionState.id, nextPaused);
+      setFeedback(result.message);
+
+      if (!result.ok) {
+        setSessionState(previous);
+        return;
+      }
+
+      router.refresh();
     });
   }
 
@@ -118,30 +151,27 @@ export function DashboardClient({ fullName, activeSession, initialAttendance }: 
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Current Session</p>
-                <h2 className="mt-1 text-2xl font-bold text-slate-900">{activeSession?.session_name ?? 'No active session'}</h2>
+                <h2 className="mt-1 text-2xl font-bold text-slate-900">{sessionState?.session_name ?? 'No active session'}</h2>
               </div>
 
-              {activeSession ? (
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1 text-sm font-semibold text-slate-600">
+              {sessionState ? (
+                <div className="text-right">
+                  <div className="inline-flex items-center justify-end gap-1 text-sm font-semibold text-slate-600">
                     <Clock3 className="h-4 w-4" />
                     {schedule}
                   </div>
-                  <StatusPill active />
                 </div>
-              ) : (
-                <StatusPill active={false} />
-              )}
+              ) : null}
             </div>
 
-            {activeSession ? (
+            {sessionState ? (
               <>
                 <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
                   <p>
-                    <span className="font-semibold text-slate-700">Instructor:</span> {activeSession.instructor}
+                    <span className="font-semibold text-slate-700">Instructor:</span> {sessionState.instructor}
                   </p>
                   <p>
-                    <span className="font-semibold text-slate-700">Class:</span> {activeSession.class}
+                    <span className="font-semibold text-slate-700">Class:</span> {sessionState.class}
                   </p>
                 </div>
 
@@ -149,7 +179,7 @@ export function DashboardClient({ fullName, activeSession, initialAttendance }: 
                   <AttendanceList records={attendance} />
                 </div>
 
-                <div className="mt-5">
+                <div className="mt-5 flex flex-wrap gap-3">
                   <Button type="button" variant="danger" onClick={handleEndSession} disabled={ending}>
                     {ending ? 'Ending...' : 'End Session'}
                   </Button>
@@ -162,7 +192,17 @@ export function DashboardClient({ fullName, activeSession, initialAttendance }: 
             )}
           </Card>
 
-          {activeSession ? <QrPanel session={activeSession} active={activeSession.status === 'active'} /> : <EmptyQrCard />}
+          {sessionState ? (
+            <QrPanel
+              session={sessionState}
+              active={sessionState.status === 'active'}
+              paused={sessionState.is_paused}
+              updatingPause={updatingPause}
+              onTogglePause={handleTogglePause}
+            />
+          ) : (
+            <EmptyQrCard />
+          )}
         </div>
       )}
     </section>

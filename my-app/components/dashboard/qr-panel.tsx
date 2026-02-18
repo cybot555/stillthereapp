@@ -13,9 +13,12 @@ import { formatSchedule } from '@/lib/utils';
 type QrPanelProps = {
   session: Session;
   active: boolean;
+  paused?: boolean;
+  updatingPause?: boolean;
+  onTogglePause?: () => void;
 };
 
-export function QrPanel({ session, active }: QrPanelProps) {
+export function QrPanel({ session, active, paused = false, updatingPause = false, onTogglePause }: QrPanelProps) {
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [baseUrl, setBaseUrl] = useState(process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000');
 
@@ -84,11 +87,23 @@ export function QrPanel({ session, active }: QrPanelProps) {
     <Card className="p-6">
       <div className="flex items-center justify-between">
         <h3 className="text-2xl font-bold text-slate-800">QR</h3>
-        <StatusPill active={active} />
+        <div className="flex items-center gap-2">
+          <StatusPill active={active && !paused} />
+
+          <Button
+            type="button"
+            variant={paused ? 'secondary' : 'danger'}
+            onClick={onTogglePause}
+            disabled={!active || updatingPause}
+            className="transition-all duration-300 ease-in-out"
+          >
+            {updatingPause ? (paused ? 'Resuming...' : 'Pausing...') : paused ? 'Resume Attendance' : 'Pause Attendance'}
+          </Button>
+        </div>
       </div>
 
       <div className="mt-4 flex justify-center">
-        <div className="rounded-2xl border border-slate-200 bg-white p-3">
+        <div className={`rounded-2xl border border-slate-200 bg-white p-3 transition-all duration-300 ease-in-out ${paused ? 'grayscale' : ''}`}>
           {active && qrDataUrl ? (
             <Image src={qrDataUrl} alt="Attendance QR" width={208} height={208} className="h-52 w-52" unoptimized />
           ) : (
@@ -98,6 +113,12 @@ export function QrPanel({ session, active }: QrPanelProps) {
           )}
         </div>
       </div>
+
+      {paused ? (
+        <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-center text-xs font-semibold text-rose-700 transition-all duration-300 ease-in-out">
+          ⚠ Attendance is paused by the instructor.
+        </p>
+      ) : null}
 
       <div className="mt-4 flex gap-2">
         <Button type="button" variant="ghost" className="flex-1 gap-2" onClick={handleSave} disabled={!active || !qrDataUrl}>

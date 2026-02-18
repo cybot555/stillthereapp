@@ -1,12 +1,12 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Camera, CheckCircle2, ImagePlus, QrCode } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/client';
-import { uploadProofImage } from '@/lib/supabase/storage';
+import { submitAttendanceAction } from '@/lib/actions/attendance';
 import { formatSchedule } from '@/lib/utils';
 
 type SessionScanFormProps = {
@@ -18,6 +18,8 @@ type SessionScanFormProps = {
     date: string;
     start_time: string;
     end_time: string;
+    status: 'active' | 'inactive';
+    is_paused: boolean;
   };
 };
 
@@ -33,6 +35,52 @@ export function SessionScanForm({ session }: SessionScanFormProps) {
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [isPaused, setIsPaused] = useState(Boolean(session.is_paused));
+  const [isActive, setIsActive] = useState(session.status === 'active');
+  const pausedMessage = 'Attendance logging is currently paused by the instructor.';
+  const closedMessage = 'This session is closed.';
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function refreshSessionState() {
+      const { data, error: sessionStateError } = await supabase
+        .from('sessions')
+        .select('status, is_paused')
+        .eq('id', session.id)
+        .maybeSingle();
+
+      if (!mounted) {
+        return;
+      }
+
+      if (sessionStateError || !data) {
+        setIsActive(false);
+        return;
+      }
+
+      setIsActive(data.status === 'active');
+      setIsPaused(Boolean(data.is_paused));
+    }
+
+    void refreshSessionState();
+    const intervalId = window.setInterval(() => {
+      void refreshSessionState();
+    }, 5000);
+
+    return () => {
+      mounted = false;
+      window.clearInterval(intervalId);
+    };
+  }, [session.id, supabase]);
+
+  const blockedMessage = !isActive ? closedMessage : isPaused ? pausedMessage : '';
+
+  useEffect(() => {
+    if (!blockedMessage && (error === pausedMessage || error === closedMessage)) {
+      setError('');
+    }
+  }, [blockedMessage, closedMessage, error, pausedMessage]);
 
   function handlePickedFile(file: File | null) {
     setProofFile(file);
@@ -59,30 +107,27 @@ export function SessionScanForm({ session }: SessionScanFormProps) {
       return;
     }
 
+    if (blockedMessage) {
+      setError(blockedMessage);
+      return;
+    }
+
     setPending(true);
     setError('');
 
     try {
-      const proofUrl = await uploadProofImage(supabase, session.id, proofFile);
+      const formData = new FormData();
+      formData.set('student_name', studentName);
+      formData.set('student_id', studentId.trim());
+      formData.set('proof_image', proofFile);
 
-      const { error: logError } = await supabase.from('attendance_logs').insert({
-        session_id: session.id,
-        student_name: studentName,
-        student_id: studentId.trim() || null,
-        proof_url: proofUrl,
-        status: 'pending'
-      });
+      const result = await submitAttendanceAction(session.id, formData);
 
-      if (logError) {
-        throw new Error(logError.message);
+      if (!result.ok) {
+        setIsPaused(Boolean(result.isPaused));
+        setIsActive(result.isActive ?? true);
+        throw new Error(result.message);
       }
-
-      // Keep compatibility with the existing dashboard attendance feed.
-      await supabase.from('attendance').insert({
-        session_id: session.id,
-        student_name: studentName,
-        proof_image: proofUrl
-      });
 
       setSubmitted(true);
     } catch (submissionError) {
@@ -137,6 +182,12 @@ export function SessionScanForm({ session }: SessionScanFormProps) {
 
         <div className="mt-4 rounded-3xl bg-white/95 p-4 text-slate-900 shadow-card">
           <h2 className="text-xl font-bold text-brand-700">ATTACH PROOF</h2>
+
+          {blockedMessage ? (
+            <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700 transition-all duration-300 ease-in-out">
+              ⚠ {blockedMessage}
+            </div>
+          ) : null}
 
           <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
             <p>
@@ -235,8 +286,13 @@ export function SessionScanForm({ session }: SessionScanFormProps) {
             >
               Cancel
             </Button>
-            <Button type="button" className="bg-emerald-500 hover:bg-emerald-600" onClick={() => void handleConfirm()} disabled={pending}>
-              {pending ? 'Submitting...' : 'Confirm'}
+            <Button
+              type="button"
+              className="bg-emerald-500 transition-all duration-300 ease-in-out hover:bg-emerald-600"
+              onClick={() => void handleConfirm()}
+              disabled={pending || Boolean(blockedMessage)}
+            >
+              {pending ? 'Submitting...' : 'Log Attendance'}
             </Button>
           </div>
         </div>

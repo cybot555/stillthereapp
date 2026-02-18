@@ -15,7 +15,7 @@ export default async function ScanPage({ params }: ScanPageProps) {
   const supabase = createAdminClient();
   const { data: session } = await supabase
     .from('sessions')
-    .select('id, session_name, instructor, class, date, start_time, end_time, status')
+    .select('id, session_name, instructor, class, date, start_time, end_time, status, is_paused')
     .eq('id', params.sessionId)
     .maybeSingle();
 
@@ -34,7 +34,7 @@ export default async function ScanPage({ params }: ScanPageProps) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand-500 via-brand-600 to-fuchsia-500 p-4">
         <Card className="w-full max-w-md p-6 text-center">
-          <h1 className="text-2xl font-bold text-slate-900">Session closed / QR inactive</h1>
+          <h1 className="text-2xl font-bold text-slate-900">This session is closed.</h1>
           <p className="mt-2 text-sm text-slate-600">{formatSchedule(session.date, session.start_time, session.end_time)}</p>
         </Card>
       </main>
@@ -50,7 +50,9 @@ export default async function ScanPage({ params }: ScanPageProps) {
         class: session.class,
         date: session.date,
         start_time: session.start_time,
-        end_time: session.end_time
+        end_time: session.end_time,
+        status: session.status,
+        is_paused: session.is_paused
       }}
     />
   );

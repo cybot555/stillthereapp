@@ -38,6 +38,7 @@ export type Database = {
           end_time: string;
           date: string;
           status: 'active' | 'inactive';
+          is_paused: boolean;
           qr_token: string;
           cover_image_url: string | null;
           created_at: string;
@@ -52,6 +53,7 @@ export type Database = {
           end_time: string;
           date: string;
           status?: 'active' | 'inactive';
+          is_paused?: boolean;
           qr_token: string;
           cover_image_url?: string | null;
           created_at?: string;
@@ -66,6 +68,7 @@ export type Database = {
           end_time?: string;
           date?: string;
           status?: 'active' | 'inactive';
+          is_paused?: boolean;
           qr_token?: string;
           cover_image_url?: string | null;
           created_at?: string;

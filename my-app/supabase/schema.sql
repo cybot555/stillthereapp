@@ -21,10 +21,14 @@ create table if not exists public.sessions (
   end_time time not null,
   date date not null,
   status text not null check (status in ('active', 'inactive')) default 'inactive',
+  is_paused boolean not null default false,
   qr_token text not null unique,
   cover_image_url text,
   created_at timestamptz not null default now()
 );
+
+alter table public.sessions
+  add column if not exists is_paused boolean not null default false;
 
 create table if not exists public.attendance (
   id uuid primary key default gen_random_uuid(),
@@ -86,7 +90,7 @@ create policy "attendance_insert_if_active" on public.attendance
     exists (
       select 1
       from public.sessions s
-      where s.id = attendance.session_id and s.status = 'active'
+      where s.id = attendance.session_id and s.status = 'active' and coalesce(s.is_paused, false) = false
     )
   );
 
@@ -96,7 +100,7 @@ create policy "attendance_logs_insert_if_active" on public.attendance_logs
     exists (
       select 1
       from public.sessions s
-      where s.id = attendance_logs.session_id and s.status = 'active'
+      where s.id = attendance_logs.session_id and s.status = 'active' and coalesce(s.is_paused, false) = false
     )
   );
 

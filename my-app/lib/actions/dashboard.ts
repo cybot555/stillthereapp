@@ -170,3 +170,39 @@ export async function endSessionAction(sessionId: string): Promise<ActionResult>
     message: 'Session ended. QR is inactive.'
   };
 }
+
+export async function setSessionPauseAction(sessionId: string, paused: boolean): Promise<ActionResult> {
+  const supabase = createClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      ok: false,
+      message: 'Authentication required.'
+    };
+  }
+
+  const { error } = await supabase
+    .from('sessions')
+    .update({ is_paused: paused })
+    .eq('id', sessionId)
+    .eq('user_id', user.id)
+    .eq('status', 'active');
+
+  if (error) {
+    return {
+      ok: false,
+      message: error.message
+    };
+  }
+
+  revalidatePath('/dashboard');
+  revalidatePath('/history');
+
+  return {
+    ok: true,
+    message: paused ? 'Attendance paused.' : 'Attendance resumed.'
+  };
+}
