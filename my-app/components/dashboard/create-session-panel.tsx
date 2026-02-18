@@ -3,13 +3,14 @@
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import Image from 'next/image';
 import QRCode from 'qrcode';
-import { ImagePlus, Share2, Download, ArrowLeft, Clock3 } from 'lucide-react';
+import { ImagePlus, Share2, Download, ArrowLeft, Clock3, Copy } from 'lucide-react';
 import { createSessionAction } from '@/lib/actions/dashboard';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
 type ConfirmedSession = {
+  id: string;
   session_name: string;
   instructor: string;
   class: string;
@@ -30,7 +31,7 @@ export function CreateSessionPanel({ instructorName, onCancel, onComplete }: Cre
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string>('');
   const [qrDataUrl, setQrDataUrl] = useState('');
-  const [baseUrl, setBaseUrl] = useState(process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000');
+  const [baseUrl, setBaseUrl] = useState(process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000');
   const [coverFileName, setCoverFileName] = useState('');
   const [confirmedSession, setConfirmedSession] = useState<ConfirmedSession | null>(null);
   const [date, setDate] = useState('');
@@ -51,12 +52,14 @@ export function CreateSessionPanel({ instructorName, onCancel, onComplete }: Cre
   const hasValidationErrors = Boolean(startTimeError || endTimeError);
 
   useEffect(() => {
-    setBaseUrl(window.location.origin);
+    setBaseUrl(process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin);
   }, []);
 
+  const normalizedBaseUrl = useMemo(() => baseUrl.replace(/\/$/, ''), [baseUrl]);
+
   const scanUrl = useMemo(
-    () => (confirmedSession ? `${baseUrl}/scan/${confirmedSession.qr_token}` : ''),
-    [baseUrl, confirmedSession]
+    () => (confirmedSession ? `${normalizedBaseUrl}/scan/${confirmedSession.id}` : ''),
+    [confirmedSession, normalizedBaseUrl]
   );
 
   useEffect(() => {
@@ -121,6 +124,15 @@ export function CreateSessionPanel({ instructorName, onCancel, onComplete }: Cre
         text: 'Scan this QR to log attendance.',
         url: scanUrl
       });
+      return;
+    }
+
+    await navigator.clipboard.writeText(scanUrl);
+    alert('Scan link copied to clipboard.');
+  }
+
+  async function handleCopyLink() {
+    if (!scanUrl) {
       return;
     }
 
@@ -337,6 +349,16 @@ export function CreateSessionPanel({ instructorName, onCancel, onComplete }: Cre
             >
               <Share2 className="h-4 w-4" />
               Share QR Code
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="gap-2 text-xs"
+              onClick={() => void handleCopyLink()}
+              disabled={!confirmedSession}
+            >
+              <Copy className="h-4 w-4" />
+              Copy Link
             </Button>
           </div>
 

@@ -1,6 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
-import { AttendanceRecord, Profile, Session } from '@/lib/types/app';
+import { AttendanceLog, AttendanceRecord, Profile, Session } from '@/lib/types/app';
 
 export async function getDashboardData() {
   const supabase = createClient();
@@ -59,10 +58,31 @@ export async function getDashboardData() {
   };
 }
 
-export async function getSessionByToken(token: string) {
-  const supabase = createAdminClient();
+export async function getAttendanceLogsForInstructor() {
+  const supabase = createClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
 
-  const { data } = await supabase.from('sessions').select('*').eq('qr_token', token).maybeSingle<Session>();
+  if (!user) {
+    return [] as Array<
+      AttendanceLog & {
+        sessions: Pick<Session, 'session_name' | 'class' | 'instructor' | 'date' | 'start_time' | 'end_time'> | null;
+      }
+    >;
+  }
 
-  return data ?? null;
+  const { data } = await supabase
+    .from('attendance_logs')
+    .select('id, session_id, student_name, student_id, proof_url, submitted_at, status, sessions!inner(session_name, class, instructor, date, start_time, end_time)')
+    .eq('sessions.user_id', user.id)
+    .order('submitted_at', { ascending: false });
+
+  return (
+    data as Array<
+      AttendanceLog & {
+        sessions: Pick<Session, 'session_name' | 'class' | 'instructor' | 'date' | 'start_time' | 'end_time'> | null;
+      }
+    >
+  ) ?? [];
 }

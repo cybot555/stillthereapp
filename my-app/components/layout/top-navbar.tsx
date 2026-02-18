@@ -10,8 +10,8 @@ type TopNavbarProps = {
 
 export function TopNavbar({ fullName }: TopNavbarProps) {
   return (
-    <header className="rounded-2xl bg-gradient-to-r from-brand-500 via-brand-500 to-fuchsia-500 px-5 py-4 text-white shadow-card">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <header className="w-full bg-gradient-to-r from-brand-500 via-brand-500 to-fuchsia-500 text-white shadow-card">
+      <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-4 md:px-8">
         <div className="flex items-center gap-3">
           <UserCircle2 className="h-7 w-7" />
           <p className="text-sm font-bold md:text-lg">Welcome, {fullName}</p>

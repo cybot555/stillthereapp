@@ -19,9 +19,11 @@ export default async function DashboardPage() {
     getDisplayName(profile?.full_name ?? user.user_metadata.full_name ?? user.user_metadata.name ?? 'Sir Cyrus');
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-7xl px-4 py-6 md:px-8">
+    <main className="min-h-screen w-full">
       <TopNavbar fullName={fullName} />
-      <DashboardClient fullName={fullName} activeSession={activeSession} initialAttendance={attendance} />
+      <div className="mx-auto w-full max-w-7xl px-4 pb-6 md:px-8">
+        <DashboardClient fullName={fullName} activeSession={activeSession} initialAttendance={attendance} />
+      </div>
     </main>
   );
 }

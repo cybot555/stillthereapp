@@ -110,7 +110,7 @@ export default function LoginPage() {
           <p className="mt-8 text-xs text-slate-500">
             Scanning students do not need to log in. They can open direct links under
             <Link href="/scan/demo" className="ml-1 font-semibold text-brand-700">
-              /scan/[token]
+              /scan/[sessionId]
             </Link>
             .
           </p>

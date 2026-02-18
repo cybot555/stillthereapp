@@ -7,6 +7,7 @@ type ActionResult = {
   ok: boolean;
   message: string;
   session?: {
+    id: string;
     session_name: string;
     instructor: string;
     class: string;
@@ -114,7 +115,7 @@ export async function createSessionAction(formData: FormData): Promise<ActionRes
       qr_token: qrToken,
       cover_image_url: coverImageUrl
     })
-    .select('session_name, instructor, class, date, start_time, end_time, qr_token, cover_image_url')
+    .select('id, session_name, instructor, class, date, start_time, end_time, qr_token, cover_image_url')
     .single();
 
   if (error) {

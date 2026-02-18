@@ -115,6 +115,44 @@ export type Database = {
           }
         ];
       };
+      attendance_logs: {
+        Row: {
+          id: string;
+          session_id: string;
+          student_name: string;
+          student_id: string | null;
+          proof_url: string;
+          submitted_at: string;
+          status: 'pending' | 'approved' | 'rejected';
+        };
+        Insert: {
+          id?: string;
+          session_id: string;
+          student_name: string;
+          student_id?: string | null;
+          proof_url: string;
+          submitted_at?: string;
+          status?: 'pending' | 'approved' | 'rejected';
+        };
+        Update: {
+          id?: string;
+          session_id?: string;
+          student_name?: string;
+          student_id?: string | null;
+          proof_url?: string;
+          submitted_at?: string;
+          status?: 'pending' | 'approved' | 'rejected';
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'attendance_logs_session_id_fkey';
+            columns: ['session_id'];
+            isOneToOne: false;
+            referencedRelation: 'sessions';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

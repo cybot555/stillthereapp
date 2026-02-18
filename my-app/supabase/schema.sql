@@ -35,9 +35,20 @@ create table if not exists public.attendance (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.attendance_logs (
+  id uuid primary key default gen_random_uuid(),
+  session_id uuid not null references public.sessions(id) on delete cascade,
+  student_name text not null,
+  student_id text,
+  proof_url text not null,
+  submitted_at timestamptz not null default now(),
+  status text not null default 'pending' check (status in ('pending', 'approved', 'rejected'))
+);
+
 alter table public.users enable row level security;
 alter table public.sessions enable row level security;
 alter table public.attendance enable row level security;
+alter table public.attendance_logs enable row level security;
 
 create policy "users_select_own" on public.users
   for select using (auth.uid() = id);
@@ -50,6 +61,10 @@ create policy "users_update_own" on public.users
 
 create policy "sessions_select_own" on public.sessions
   for select using (auth.uid() = user_id);
+
+create policy "sessions_select_active_public" on public.sessions
+  for select to anon, authenticated
+  using (status = 'active');
 
 create policy "sessions_insert_own" on public.sessions
   for insert with check (auth.uid() = user_id);
@@ -75,12 +90,36 @@ create policy "attendance_insert_if_active" on public.attendance
     )
   );
 
+create policy "attendance_logs_insert_if_active" on public.attendance_logs
+  for insert to anon, authenticated
+  with check (
+    exists (
+      select 1
+      from public.sessions s
+      where s.id = attendance_logs.session_id and s.status = 'active'
+    )
+  );
+
+create policy "attendance_logs_select_owner" on public.attendance_logs
+  for select to authenticated
+  using (
+    exists (
+      select 1
+      from public.sessions s
+      where s.id = attendance_logs.session_id and s.user_id = auth.uid()
+    )
+  );
+
 insert into storage.buckets (id, name, public)
 values ('session-covers', 'session-covers', true)
 on conflict (id) do nothing;
 
 insert into storage.buckets (id, name, public)
 values ('attendance-proofs', 'attendance-proofs', true)
+on conflict (id) do nothing;
+
+insert into storage.buckets (id, name, public)
+values ('proofs', 'proofs', true)
 on conflict (id) do nothing;
 
 create policy "session_covers_upload_own" on storage.objects
@@ -101,5 +140,13 @@ create policy "attendance_proofs_public_insert" on storage.objects
 create policy "attendance_proofs_public_read" on storage.objects
   for select to public
   using (bucket_id = 'attendance-proofs');
+
+create policy "proofs_public_insert" on storage.objects
+  for insert to anon, authenticated
+  with check (bucket_id = 'proofs');
+
+create policy "proofs_public_read" on storage.objects
+  for select to public
+  using (bucket_id = 'proofs');
 
 alter publication supabase_realtime add table public.attendance;

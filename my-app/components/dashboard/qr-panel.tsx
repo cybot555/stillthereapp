@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import QRCode from 'qrcode';
-import { Download, Share2 } from 'lucide-react';
+import { Copy, Download, Share2 } from 'lucide-react';
 import { Session } from '@/lib/types/app';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,13 +17,14 @@ type QrPanelProps = {
 
 export function QrPanel({ session, active }: QrPanelProps) {
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
-  const [baseUrl, setBaseUrl] = useState(process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000');
+  const [baseUrl, setBaseUrl] = useState(process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000');
 
   useEffect(() => {
-    setBaseUrl(window.location.origin);
+    setBaseUrl(process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin);
   }, []);
 
-  const scanUrl = useMemo(() => `${baseUrl}/scan/${session.qr_token}`, [baseUrl, session.qr_token]);
+  const normalizedBaseUrl = useMemo(() => baseUrl.replace(/\/$/, ''), [baseUrl]);
+  const scanUrl = useMemo(() => `${normalizedBaseUrl}/scan/${session.id}`, [normalizedBaseUrl, session.id]);
 
   useEffect(() => {
     if (!active) {
@@ -52,6 +53,15 @@ export function QrPanel({ session, active }: QrPanelProps) {
         text: 'Scan this QR to log attendance.',
         url: scanUrl
       });
+      return;
+    }
+
+    await navigator.clipboard.writeText(scanUrl);
+    alert('Scan link copied to clipboard.');
+  }
+
+  async function handleCopyLink() {
+    if (!active) {
       return;
     }
 
@@ -97,6 +107,10 @@ export function QrPanel({ session, active }: QrPanelProps) {
         <Button type="button" variant="ghost" className="flex-1 gap-2" onClick={() => void handleShare()} disabled={!active}>
           <Share2 className="h-4 w-4" />
           Share QR
+        </Button>
+        <Button type="button" variant="ghost" className="flex-1 gap-2" onClick={() => void handleCopyLink()} disabled={!active}>
+          <Copy className="h-4 w-4" />
+          Copy Link
         </Button>
       </div>
 
