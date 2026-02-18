@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { CalendarCheck2, Clock3, Plus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/browser';
-import { endSessionAction, setSessionPauseAction } from '@/lib/actions/dashboard';
-import { AttendanceRecord, Session } from '@/lib/types/app';
+import { endSessionAction, setSessionPauseAction, startOrGetActiveRun } from '@/lib/actions/dashboard';
+import { AttendanceRecord, Session, SessionRun } from '@/lib/types/app';
 import { ActionTile } from '@/components/dashboard/action-tile';
 import { AttendanceList } from '@/components/dashboard/attendance-list';
 import { CreateSessionPanel } from '@/components/dashboard/create-session-panel';
@@ -19,20 +19,52 @@ type DashboardClientProps = {
   fullName: string;
   activeSession: Session | null;
   initialAttendance: AttendanceRecord[];
+  initialRun: SessionRun | null;
 };
 
-export function DashboardClient({ fullName, activeSession, initialAttendance }: DashboardClientProps) {
+export function DashboardClient({ fullName, activeSession, initialAttendance, initialRun }: DashboardClientProps) {
   const router = useRouter();
   const [showCreatePanel, setShowCreatePanel] = useState(false);
   const [attendance, setAttendance] = useState(initialAttendance);
   const [feedback, setFeedback] = useState('');
   const [sessionState, setSessionState] = useState<Session | null>(activeSession);
+  const [sessionRun, setSessionRun] = useState<SessionRun | null>(initialRun);
   const [ending, startEnding] = useTransition();
   const [updatingPause, startUpdatingPause] = useTransition();
 
   useEffect(() => {
     setSessionState(activeSession);
   }, [activeSession]);
+
+  useEffect(() => {
+    setSessionRun(initialRun);
+  }, [initialRun]);
+
+  useEffect(() => {
+    if (!sessionState || sessionState.status !== 'active' || sessionState.is_paused || sessionRun?.status === 'active') {
+      return;
+    }
+
+    const sessionId = sessionState.id;
+    let cancelled = false;
+
+    async function ensureRun() {
+      const result = await startOrGetActiveRun(sessionId);
+
+      if (cancelled || !result.ok || !result.run) {
+        return;
+      }
+
+      setSessionRun(result.run);
+      router.refresh();
+    }
+
+    void ensureRun();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [router, sessionRun, sessionState]);
 
   useEffect(() => {
     setAttendance(initialAttendance);
@@ -126,6 +158,7 @@ export function DashboardClient({ fullName, activeSession, initialAttendance }: 
         return;
       }
 
+      setSessionRun((previousRun) => result.run ?? previousRun);
       router.refresh();
     });
   }
@@ -197,6 +230,7 @@ export function DashboardClient({ fullName, activeSession, initialAttendance }: 
               session={sessionState}
               active={sessionState.status === 'active'}
               paused={sessionState.is_paused}
+              runNumber={sessionRun?.run_number ?? null}
               updatingPause={updatingPause}
               onTogglePause={handleTogglePause}
             />

@@ -24,14 +24,21 @@ export default async function HistoryPage() {
     .limit(50);
 
   const sessionIds = (sessions ?? []).map((session) => session.id);
-  const { data: attendanceLogs } = sessionIds.length
-    ? await supabase
-        .from('attendance_logs')
-        .select('id, session_id, student_name, student_id, proof_url, submitted_at, status')
-        .in('session_id', sessionIds)
-        .order('submitted_at', { ascending: false })
-        .limit(300)
-    : { data: [] };
+  const [{ data: attendanceLogs }, { data: sessionRuns }] = sessionIds.length
+    ? await Promise.all([
+        supabase
+          .from('attendance_logs')
+          .select('id, session_id, run_id, student_name, student_id, proof_url, submitted_at, status')
+          .in('session_id', sessionIds)
+          .order('submitted_at', { ascending: false })
+          .limit(500),
+        supabase
+          .from('session_runs')
+          .select('id, session_id, run_number, status, started_at, ended_at')
+          .in('session_id', sessionIds)
+          .order('run_number', { ascending: false })
+      ])
+    : [{ data: [] }, { data: [] }];
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-6xl px-4 py-8 md:px-8">
@@ -46,7 +53,7 @@ export default async function HistoryPage() {
         </Link>
       </div>
 
-      <SessionHistoryAccordion sessions={sessions ?? []} logs={attendanceLogs ?? []} />
+      <SessionHistoryAccordion sessions={sessions ?? []} logs={attendanceLogs ?? []} runs={sessionRuns ?? []} />
     </main>
   );
 }

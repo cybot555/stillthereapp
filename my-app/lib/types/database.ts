@@ -122,6 +122,7 @@ export type Database = {
         Row: {
           id: string;
           session_id: string;
+          run_id: string | null;
           student_name: string;
           student_id: string | null;
           proof_url: string;
@@ -131,6 +132,7 @@ export type Database = {
         Insert: {
           id?: string;
           session_id: string;
+          run_id?: string | null;
           student_name: string;
           student_id?: string | null;
           proof_url: string;
@@ -140,6 +142,7 @@ export type Database = {
         Update: {
           id?: string;
           session_id?: string;
+          run_id?: string | null;
           student_name?: string;
           student_id?: string | null;
           proof_url?: string;
@@ -153,12 +156,78 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: 'sessions';
             referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'attendance_logs_run_id_fkey';
+            columns: ['run_id'];
+            isOneToOne: false;
+            referencedRelation: 'session_runs';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
+      session_runs: {
+        Row: {
+          id: string;
+          session_id: string;
+          run_number: number;
+          status: 'active' | 'ended';
+          started_at: string;
+          ended_at: string | null;
+          created_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          session_id: string;
+          run_number: number;
+          status: 'active' | 'ended';
+          started_at?: string;
+          ended_at?: string | null;
+          created_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          session_id?: string;
+          run_number?: number;
+          status?: 'active' | 'ended';
+          started_at?: string;
+          ended_at?: string | null;
+          created_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'session_runs_session_id_fkey';
+            columns: ['session_id'];
+            isOneToOne: false;
+            referencedRelation: 'sessions';
+            referencedColumns: ['id'];
           }
         ];
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      start_or_get_active_run: {
+        Args: {
+          p_session_id: string;
+          p_created_by?: string | null;
+        };
+        Returns: Database['public']['Tables']['session_runs']['Row'];
+      };
+      pause_run: {
+        Args: {
+          p_session_id: string;
+        };
+        Returns: Database['public']['Tables']['session_runs']['Row'] | null;
+      };
+      resume_run: {
+        Args: {
+          p_session_id: string;
+          p_created_by?: string | null;
+        };
+        Returns: Database['public']['Tables']['session_runs']['Row'];
+      };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };

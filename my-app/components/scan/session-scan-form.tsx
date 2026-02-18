@@ -20,6 +20,7 @@ type SessionScanFormProps = {
     end_time: string;
     status: 'active' | 'inactive';
     is_paused: boolean;
+    active_run_number: number | null;
   };
 };
 
@@ -37,6 +38,7 @@ export function SessionScanForm({ session }: SessionScanFormProps) {
   const [submitted, setSubmitted] = useState(false);
   const [isPaused, setIsPaused] = useState(Boolean(session.is_paused));
   const [isActive, setIsActive] = useState(session.status === 'active');
+  const [activeRunNumber, setActiveRunNumber] = useState<number | null>(session.active_run_number);
   const pausedMessage = 'Attendance logging is currently paused by the instructor.';
   const closedMessage = 'This session is closed.';
 
@@ -44,11 +46,17 @@ export function SessionScanForm({ session }: SessionScanFormProps) {
     let mounted = true;
 
     async function refreshSessionState() {
-      const { data, error: sessionStateError } = await supabase
-        .from('sessions')
-        .select('status, is_paused')
-        .eq('id', session.id)
-        .maybeSingle();
+      const [{ data, error: sessionStateError }, { data: activeRun }] = await Promise.all([
+        supabase.from('sessions').select('status, is_paused').eq('id', session.id).maybeSingle(),
+        supabase
+          .from('session_runs')
+          .select('run_number, status')
+          .eq('session_id', session.id)
+          .eq('status', 'active')
+          .order('run_number', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      ]);
 
       if (!mounted) {
         return;
@@ -56,11 +64,13 @@ export function SessionScanForm({ session }: SessionScanFormProps) {
 
       if (sessionStateError || !data) {
         setIsActive(false);
+        setActiveRunNumber(null);
         return;
       }
 
       setIsActive(data.status === 'active');
       setIsPaused(Boolean(data.is_paused));
+      setActiveRunNumber(activeRun?.run_number ?? null);
     }
 
     void refreshSessionState();
@@ -74,7 +84,7 @@ export function SessionScanForm({ session }: SessionScanFormProps) {
     };
   }, [session.id, supabase]);
 
-  const blockedMessage = !isActive ? closedMessage : isPaused ? pausedMessage : '';
+  const blockedMessage = !isActive ? closedMessage : isPaused || !activeRunNumber ? pausedMessage : '';
 
   useEffect(() => {
     if (!blockedMessage && (error === pausedMessage || error === closedMessage)) {
@@ -126,9 +136,11 @@ export function SessionScanForm({ session }: SessionScanFormProps) {
       if (!result.ok) {
         setIsPaused(Boolean(result.isPaused));
         setIsActive(result.isActive ?? true);
+        setActiveRunNumber(result.runNumber ?? null);
         throw new Error(result.message);
       }
 
+      setActiveRunNumber(result.runNumber ?? activeRunNumber);
       setSubmitted(true);
     } catch (submissionError) {
       setError(submissionError instanceof Error ? submissionError.message : 'Failed to submit attendance.');

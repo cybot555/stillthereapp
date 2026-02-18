@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { SessionRun } from '@/lib/types/app';
 
 type ActionResult = {
   ok: boolean;
@@ -17,7 +18,79 @@ type ActionResult = {
     qr_token: string;
     cover_image_url: string | null;
   };
+  run?: SessionRun | null;
 };
+
+function normalizeRunResult(data: unknown): SessionRun | null {
+  if (!data) {
+    return null;
+  }
+
+  if (Array.isArray(data)) {
+    return (data[0] as SessionRun | undefined) ?? null;
+  }
+
+  return data as SessionRun;
+}
+
+async function startOrGetActiveRunInternal(sessionId: string, createdBy: string | null) {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc('start_or_get_active_run', {
+    p_session_id: sessionId,
+    p_created_by: createdBy
+  });
+
+  if (error) {
+    return {
+      run: null as SessionRun | null,
+      error: error.message
+    };
+  }
+
+  return {
+    run: normalizeRunResult(data),
+    error: null
+  };
+}
+
+async function pauseRunInternal(sessionId: string) {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc('pause_run', {
+    p_session_id: sessionId
+  });
+
+  if (error) {
+    return {
+      run: null as SessionRun | null,
+      error: error.message
+    };
+  }
+
+  return {
+    run: normalizeRunResult(data),
+    error: null
+  };
+}
+
+async function resumeRunInternal(sessionId: string, createdBy: string | null) {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc('resume_run', {
+    p_session_id: sessionId,
+    p_created_by: createdBy
+  });
+
+  if (error) {
+    return {
+      run: null as SessionRun | null,
+      error: error.message
+    };
+  }
+
+  return {
+    run: normalizeRunResult(data),
+    error: null
+  };
+}
 
 function parseTime(value: string) {
   if (!/^\d{2}:\d{2}$/.test(value)) {
@@ -98,7 +171,17 @@ export async function createSessionAction(formData: FormData): Promise<ActionRes
   }
 
   // Keep a single live QR per instructor by closing any previous active session.
-  await supabase.from('sessions').update({ status: 'inactive' }).eq('user_id', user.id).eq('status', 'active');
+  const { data: previousActiveSessions } = await supabase
+    .from('sessions')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('status', 'active');
+
+  await supabase.from('sessions').update({ status: 'inactive', is_paused: false }).eq('user_id', user.id).eq('status', 'active');
+
+  for (const previousSession of previousActiveSessions ?? []) {
+    await pauseRunInternal(previousSession.id);
+  }
 
   const qrToken = crypto.randomUUID();
   const { data: session, error } = await supabase
@@ -125,13 +208,23 @@ export async function createSessionAction(formData: FormData): Promise<ActionRes
     };
   }
 
+  const { run, error: runError } = await startOrGetActiveRunInternal(session.id, user.id);
+
+  if (runError) {
+    return {
+      ok: false,
+      message: runError
+    };
+  }
+
   revalidatePath('/dashboard');
   revalidatePath('/history');
 
   return {
     ok: true,
     message: 'Session created. QR is now active.',
-    session
+    session,
+    run
   };
 }
 
@@ -162,12 +255,117 @@ export async function endSessionAction(sessionId: string): Promise<ActionResult>
     };
   }
 
+  const { error: pauseError } = await pauseRunInternal(sessionId);
+
+  if (pauseError) {
+    return {
+      ok: false,
+      message: pauseError
+    };
+  }
+
   revalidatePath('/dashboard');
   revalidatePath('/history');
 
   return {
     ok: true,
     message: 'Session ended. QR is inactive.'
+  };
+}
+
+export async function startOrGetActiveRun(sessionId: string): Promise<ActionResult> {
+  const supabase = createClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      ok: false,
+      message: 'Authentication required.'
+    };
+  }
+
+  const { run, error } = await startOrGetActiveRunInternal(sessionId, user.id);
+
+  if (error) {
+    return {
+      ok: false,
+      message: error
+    };
+  }
+
+  revalidatePath('/dashboard');
+  revalidatePath('/history');
+
+  return {
+    ok: true,
+    message: run ? `Run #${run.run_number} is active.` : 'No active run.',
+    run
+  };
+}
+
+export async function pauseRun(sessionId: string): Promise<ActionResult> {
+  const supabase = createClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      ok: false,
+      message: 'Authentication required.'
+    };
+  }
+
+  const { run, error } = await pauseRunInternal(sessionId);
+
+  if (error) {
+    return {
+      ok: false,
+      message: error
+    };
+  }
+
+  revalidatePath('/dashboard');
+  revalidatePath('/history');
+
+  return {
+    ok: true,
+    message: run ? `Run #${run.run_number} ended.` : 'Session is already paused.',
+    run
+  };
+}
+
+export async function resumeRun(sessionId: string): Promise<ActionResult> {
+  const supabase = createClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      ok: false,
+      message: 'Authentication required.'
+    };
+  }
+
+  const { run, error } = await resumeRunInternal(sessionId, user.id);
+
+  if (error) {
+    return {
+      ok: false,
+      message: error
+    };
+  }
+
+  revalidatePath('/dashboard');
+  revalidatePath('/history');
+
+  return {
+    ok: true,
+    message: run ? `Run #${run.run_number} is active.` : 'Unable to resume run.',
+    run
   };
 }
 
@@ -198,11 +396,41 @@ export async function setSessionPauseAction(sessionId: string, paused: boolean):
     };
   }
 
+  if (paused) {
+    const { run, error: runError } = await pauseRunInternal(sessionId);
+
+    if (runError) {
+      return {
+        ok: false,
+        message: runError
+      };
+    }
+
+    revalidatePath('/dashboard');
+    revalidatePath('/history');
+
+    return {
+      ok: true,
+      message: run ? `Attendance paused. Run #${run.run_number} ended.` : 'Attendance paused.',
+      run
+    };
+  }
+
+  const { run, error: runError } = await resumeRunInternal(sessionId, user.id);
+
+  if (runError) {
+    return {
+      ok: false,
+      message: runError
+    };
+  }
+
   revalidatePath('/dashboard');
   revalidatePath('/history');
 
   return {
     ok: true,
-    message: paused ? 'Attendance paused.' : 'Attendance resumed.'
+    message: run ? `Attendance resumed. Run #${run.run_number} is active.` : 'Attendance resumed.',
+    run
   };
 }

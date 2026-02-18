@@ -19,6 +19,15 @@ export default async function ScanPage({ params }: ScanPageProps) {
     .eq('id', params.sessionId)
     .maybeSingle();
 
+  const { data: activeRun } = await supabase
+    .from('session_runs')
+    .select('id, run_number, status')
+    .eq('session_id', params.sessionId)
+    .eq('status', 'active')
+    .order('run_number', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
   if (!session) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand-500 via-brand-600 to-fuchsia-500 p-4">
@@ -52,7 +61,8 @@ export default async function ScanPage({ params }: ScanPageProps) {
         start_time: session.start_time,
         end_time: session.end_time,
         status: session.status,
-        is_paused: session.is_paused
+        is_paused: session.is_paused,
+        active_run_number: activeRun?.run_number ?? null
       }}
     />
   );

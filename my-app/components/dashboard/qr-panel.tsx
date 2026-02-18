@@ -14,11 +14,12 @@ type QrPanelProps = {
   session: Session;
   active: boolean;
   paused?: boolean;
+  runNumber?: number | null;
   updatingPause?: boolean;
   onTogglePause?: () => void;
 };
 
-export function QrPanel({ session, active, paused = false, updatingPause = false, onTogglePause }: QrPanelProps) {
+export function QrPanel({ session, active, paused = false, runNumber = null, updatingPause = false, onTogglePause }: QrPanelProps) {
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [baseUrl, setBaseUrl] = useState(process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000');
 
@@ -88,6 +89,9 @@ export function QrPanel({ session, active, paused = false, updatingPause = false
       <div className="flex items-center justify-between">
         <h3 className="text-2xl font-bold text-slate-800">QR</h3>
         <div className="flex items-center gap-2">
+          <span className="inline-flex min-w-[84px] items-center justify-center rounded-full bg-brand-50 px-3 py-1 text-xs font-bold tracking-wide text-brand-700">
+            {runNumber ? `RUN #${runNumber}` : 'RUN #--'}
+          </span>
           <StatusPill active={active && !paused} />
 
           <Button
