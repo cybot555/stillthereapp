@@ -142,18 +142,18 @@ export default function SignupPage() {
 
       <section className="hidden bg-gradient-to-br from-brand-500 via-brand-500 to-brand-500 p-12 text-white lg:flex lg:flex-col lg:justify-between">
         <div>
-          <p className="text-sm uppercase tracking-[0.25em] text-white/80">Still There</p>
-          <h2 className="mt-5 text-6xl font-extrabold leading-tight">
-            Build your
-            <br />
-            live classroom.
+          <h2 className="text-3xl font-extrabold leading-none">
+            Will you be,
+          </h2>
+          <h2 className="-mt-2 text-8xl font-extrabold leading-none">
+            still there?
           </h2>
         </div>
 
-        <div className="max-w-md rounded-3xl bg-white/10 p-6 backdrop-blur-sm">
+        {/* <div className="max-w-md rounded-3xl bg-white/10 p-6 backdrop-blur-sm">
           <p className="text-lg font-semibold">Set up once and track attendance instantly.</p>
           <p className="mt-2 text-sm text-white/85">Start with secure email authentication backed by Supabase.</p>
-        </div>
+        </div> */}
       </section>
     </main>
   );

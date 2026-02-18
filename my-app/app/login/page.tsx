@@ -109,32 +109,32 @@ function LoginPageContent() {
             </Link>
           </p>
 
-          <p className="mt-8 text-xs text-slate-500">
-            Scanning students do not need to log in. They can open direct links under
+          {/* <p className="mt-8 text-xs text-slate-500">
+            Scanning students do not need to log in. They can open direct links under the
             <Link href="/scan/demo" className="ml-1 font-semibold text-brand-700">
-              /scan/[sessionId]
+              
             </Link>
             .
-          </p>
+          </p> */}
         </div>
       </section>
 
       <section className="hidden bg-gradient-to-br from-brand-500 via-brand-500 to-brand-500 p-12 text-white lg:flex lg:flex-col lg:justify-between">
         <div>
-          <p className="text-sm uppercase tracking-[0.25em] text-white/80">Still There</p>
-          <h2 className="mt-5 text-6xl font-extrabold leading-tight">
+          <h2 className="text-3xl font-extrabold leading-none">
             Welcome,
-            <br />
+          </h2>
+          <h2 className="-mt-2 text-8xl font-extrabold leading-none">
             still there?
           </h2>
         </div>
 
-        <div className="max-w-md rounded-3xl bg-white/10 p-6 backdrop-blur-sm">
+        {/* <div className="max-w-md rounded-3xl bg-white/10 p-6 backdrop-blur-sm">
           <p className="text-lg font-semibold">Live QR attendance for modern classrooms.</p>
           <p className="mt-2 text-sm text-white/85">
             Create one session, display one code, and track arrivals in real time.
           </p>
-        </div>
+        </div> */}
       </section>
     </main>
   );
