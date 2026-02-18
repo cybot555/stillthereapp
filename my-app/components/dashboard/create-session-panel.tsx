@@ -86,6 +86,7 @@ export function CreateSessionPanel({ onCancel, onComplete }: CreateSessionPanelP
 
   const isTodaySelected = date === todayDate;
   const hasValidationErrors = Boolean(startTimeError || endTimeError);
+  const hasMissingScheduleFields = !date || !startTime || !endTime;
   const selectedDate = parseDateInput(date) ?? localNow;
   const selectedStartDate = parseTimeInput(startTime, selectedDate);
   const selectedEndDate = parseTimeInput(endTime, selectedDate);
@@ -146,6 +147,15 @@ export function CreateSessionPanel({ onCancel, onComplete }: CreateSessionPanelP
 
   async function handleSubmit(formData: FormData) {
     if (startTimeError || endTimeError) {
+      return;
+    }
+
+    const sessionName = String(formData.get('session_name') ?? '').trim();
+    const instructor = String(formData.get('instructor') ?? '').trim();
+    const className = String(formData.get('class') ?? '').trim();
+
+    if (!sessionName || !instructor || !className || !date || !startTime || !endTime) {
+      setMessage('Please fill out all required fields.');
       return;
     }
 
@@ -213,7 +223,7 @@ export function CreateSessionPanel({ onCancel, onComplete }: CreateSessionPanelP
               action={handleSubmit}
               className="mt-6 space-y-4"
               onSubmit={(event) => {
-                if (hasValidationErrors) {
+                if (hasValidationErrors || hasMissingScheduleFields) {
                   event.preventDefault();
                 }
               }}
@@ -399,7 +409,11 @@ export function CreateSessionPanel({ onCancel, onComplete }: CreateSessionPanelP
                 <Button type="button" variant="danger" onClick={onCancel}>
                   Cancel
                 </Button>
-                <Button type="submit" className="bg-emerald-500 hover:bg-emerald-600" disabled={pending || hasValidationErrors}>
+                <Button
+                  type="submit"
+                  className="bg-emerald-500 hover:bg-emerald-600"
+                  disabled={pending || hasValidationErrors || hasMissingScheduleFields}
+                >
                   {pending ? 'Confirming...' : 'Confirm'}
                 </Button>
               </div>
