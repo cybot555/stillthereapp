@@ -195,7 +195,7 @@ export function SessionScanForm({ session }: SessionScanFormProps) {
           />
         </div>
 
-        <h1 className="text-6xl font-extrabold text-lime-400 text-center">QR CODE SUCCESS</h1>
+        <h1 className="text-5xl font-extrabold text-lime-300 text-center">QR CODE SUCCESS</h1>
         <p className="mt-1 text-sm text-white/90 text-center">Attach proof to confirm your attendance.</p>
 
         <div className="mt-4 rounded-3xl bg-white/95 p-4 text-slate-900 shadow-card">
