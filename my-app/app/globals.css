@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #f4f4fb;
+  --foreground: #171727;
+}
+
+body {
+  background:
+    radial-gradient(circle at 5% 0%, rgba(142, 87, 255, 0.2), transparent 35%),
+    radial-gradient(circle at 95% 20%, rgba(126, 52, 244, 0.18), transparent 30%),
+    var(--background);
+  color: var(--foreground);
+  min-height: 100vh;
+}
