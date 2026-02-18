@@ -1,6 +1,7 @@
 'use client';
 
-import { LogOut, UserCircle2 } from 'lucide-react';
+import Image from 'next/image';
+import { LogOut } from 'lucide-react';
 import { signOutAction } from '@/lib/actions/auth';
 import { Button } from '@/components/ui/button';
 
@@ -13,7 +14,7 @@ export function TopNavbar({ email }: TopNavbarProps) {
     <header className="w-full bg-gradient-to-r from-brand-500 via-brand-500 to-brand-500 text-white shadow-card">
       <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-4 md:px-8">
         <div className="flex items-center gap-3">
-          <UserCircle2 className="h-7 w-7" />
+          <Image src="/icons/pfplogo.png" alt="Profile" width={36} height={36} className="h-9 w-9 object-contain" />
           <p className="text-sm font-bold md:text-lg">Welcome, {email}</p>
         </div>
 
