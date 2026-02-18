@@ -1,12 +1,13 @@
 'use client';
 
 import Link from 'next/link';
+import { Suspense } from 'react';
 import { FormEvent, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { QrCode } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
-export default function LoginPage() {
+function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = useMemo(() => createClient(), []);
@@ -135,5 +136,13 @@ export default function LoginPage() {
         </div>
       </section>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginPageContent />
+    </Suspense>
   );
 }
