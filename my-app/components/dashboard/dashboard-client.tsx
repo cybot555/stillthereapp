@@ -16,13 +16,12 @@ import { Button } from '@/components/ui/button';
 import { formatSchedule } from '@/lib/utils';
 
 type DashboardClientProps = {
-  fullName: string;
   activeSession: Session | null;
   initialAttendance: AttendanceRecord[];
   initialRun: SessionRun | null;
 };
 
-export function DashboardClient({ fullName, activeSession, initialAttendance, initialRun }: DashboardClientProps) {
+export function DashboardClient({ activeSession, initialAttendance, initialRun }: DashboardClientProps) {
   const router = useRouter();
   const [showCreatePanel, setShowCreatePanel] = useState(false);
   const [attendance, setAttendance] = useState(initialAttendance);
@@ -173,11 +172,7 @@ export function DashboardClient({ fullName, activeSession, initialAttendance, in
       {feedback ? <p className="rounded-xl bg-brand-50 px-4 py-3 text-sm font-medium text-brand-700">{feedback}</p> : null}
 
       {showCreatePanel ? (
-        <CreateSessionPanel
-          instructorName={fullName}
-          onCancel={() => setShowCreatePanel(false)}
-          onComplete={handleCompleteCreate}
-        />
+        <CreateSessionPanel onCancel={() => setShowCreatePanel(false)} onComplete={handleCompleteCreate} />
       ) : (
         <div className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
           <Card className="p-6">

@@ -22,12 +22,11 @@ type ConfirmedSession = {
 };
 
 type CreateSessionPanelProps = {
-  instructorName: string;
   onCancel: () => void;
   onComplete: (message: string) => void;
 };
 
-export function CreateSessionPanel({ instructorName, onCancel, onComplete }: CreateSessionPanelProps) {
+export function CreateSessionPanel({ onCancel, onComplete }: CreateSessionPanelProps) {
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string>('');
   const [qrDataUrl, setQrDataUrl] = useState('');
@@ -184,7 +183,6 @@ export function CreateSessionPanel({ instructorName, onCancel, onComplete }: Cre
                 <input
                   required
                   name="instructor"
-                  defaultValue={instructorName}
                   className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-brand-400"
                 />
               </div>

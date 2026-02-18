@@ -5,25 +5,22 @@ import { DashboardClient } from '@/components/dashboard/dashboard-client';
 import { TopNavbar } from '@/components/layout/top-navbar';
 import { upsertProfileFromAuth } from '@/lib/actions/auth';
 import { getDashboardData } from '@/lib/data';
-import { getDisplayName } from '@/lib/utils';
 
 export default async function DashboardPage() {
   await upsertProfileFromAuth();
-  const { user, profile, activeSession, currentRun, attendance } = await getDashboardData();
+  const { user, activeSession, currentRun, attendance } = await getDashboardData();
 
   if (!user) {
     redirect('/login');
   }
 
-  const fullName =
-    getDisplayName(profile?.full_name ?? user.user_metadata.full_name ?? user.user_metadata.name ?? 'Sir Cyrus');
   const userEmail = user.email ?? 'No email';
 
   return (
     <main className="min-h-screen w-full">
       <TopNavbar email={userEmail} />
       <div className="mx-auto w-full max-w-7xl px-4 pb-6 md:px-8">
-        <DashboardClient fullName={fullName} activeSession={activeSession} initialAttendance={attendance} initialRun={currentRun} />
+        <DashboardClient activeSession={activeSession} initialAttendance={attendance} initialRun={currentRun} />
       </div>
     </main>
   );
