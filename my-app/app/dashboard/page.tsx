@@ -17,10 +17,11 @@ export default async function DashboardPage() {
 
   const fullName =
     getDisplayName(profile?.full_name ?? user.user_metadata.full_name ?? user.user_metadata.name ?? 'Sir Cyrus');
+  const userEmail = user.email ?? 'No email';
 
   return (
     <main className="min-h-screen w-full">
-      <TopNavbar fullName={fullName} />
+      <TopNavbar email={userEmail} />
       <div className="mx-auto w-full max-w-7xl px-4 pb-6 md:px-8">
         <DashboardClient fullName={fullName} activeSession={activeSession} initialAttendance={attendance} />
       </div>

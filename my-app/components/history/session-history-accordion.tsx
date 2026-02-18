@@ -62,7 +62,7 @@ export function SessionHistoryAccordion({ sessions, logs }: SessionHistoryAccord
         <p>Attendees</p>
         <p>Instructor</p>
         <p>Schedule</p>
-        <p className="text-right">Open</p>
+        <p className="text-right" />
       </div>
 
       <div className="divide-y divide-slate-100">
