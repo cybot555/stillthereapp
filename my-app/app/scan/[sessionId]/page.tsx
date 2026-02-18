@@ -30,7 +30,7 @@ export default async function ScanPage({ params }: ScanPageProps) {
 
   if (!session) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand-500 via-brand-600 to-fuchsia-500 p-4">
+      <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand-500 via-brand-500 to-brand-500 p-4">
         <Card className="w-full max-w-md p-6 text-center">
           <h1 className="text-2xl font-bold text-slate-900">Invalid QR / Session not found</h1>
           <p className="mt-2 text-sm text-slate-600">This QR code is invalid, expired, or belongs to another environment.</p>
@@ -41,7 +41,7 @@ export default async function ScanPage({ params }: ScanPageProps) {
 
   if (session.status !== 'active') {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand-500 via-brand-600 to-fuchsia-500 p-4">
+      <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand-500 via-brand-500 to-brand-500 p-4">
         <Card className="w-full max-w-md p-6 text-center">
           <h1 className="text-2xl font-bold text-slate-900">This session is closed.</h1>
           <p className="mt-2 text-sm text-slate-600">{formatSchedule(session.date, session.start_time, session.end_time)}</p>

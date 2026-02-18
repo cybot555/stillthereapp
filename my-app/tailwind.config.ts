@@ -10,16 +10,16 @@ const config: Config = {
     extend: {
       colors: {
         brand: {
-          50: '#f5efff',
-          100: '#e9dcff',
-          200: '#d4b8ff',
-          300: '#bc8fff',
-          400: '#a56bff',
-          500: '#8f4bff',
-          600: '#7e34f4',
-          700: '#6f28d8',
-          800: '#5e24b2',
-          900: '#4e208f'
+          50: '#f9f0ff',
+          100: '#f3e0ff',
+          200: '#e8c2ff',
+          300: '#dda3ff',
+          400: '#d184ff',
+          500: '#c061ff',
+          600: '#c061ff',
+          700: '#ad45eb',
+          800: '#8e35c4',
+          900: '#702a9a'
         }
       },
       boxShadow: {

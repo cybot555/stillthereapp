@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { FormEvent, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { QrCode } from 'lucide-react';
+import Image from 'next/image';
 import { createClient } from '@/lib/supabase/client';
 
 export default function SignupPage() {
@@ -54,14 +54,15 @@ export default function SignupPage() {
     <main className="grid min-h-screen lg:grid-cols-2">
       <section className="flex items-center justify-center px-6 py-10 lg:px-16">
         <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 shadow-card">
-          <div className="mb-8 flex items-center gap-3">
-            <div className="rounded-xl bg-brand-100 p-2 text-brand-700">
-              <QrCode className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-lg font-bold text-slate-900">STILL THERE</p>
-              <p className="text-xs text-slate-500">AI-Assisted Attendance Tracking</p>
-            </div>
+          <div className="mb-8">
+            <Image
+              src="/icons/stilltherelogo.png"
+              alt="Still There logo"
+              width={420}
+              height={120}
+              className="mx-auto h-24 w-auto object-contain"
+              priority
+            />
           </div>
 
           <h1 className="text-2xl font-bold text-slate-900">Create account</h1>
@@ -139,7 +140,7 @@ export default function SignupPage() {
         </div>
       </section>
 
-      <section className="hidden bg-gradient-to-br from-brand-500 via-brand-600 to-fuchsia-500 p-12 text-white lg:flex lg:flex-col lg:justify-between">
+      <section className="hidden bg-gradient-to-br from-brand-500 via-brand-500 to-brand-500 p-12 text-white lg:flex lg:flex-col lg:justify-between">
         <div>
           <p className="text-sm uppercase tracking-[0.25em] text-white/80">Still There</p>
           <h2 className="mt-5 text-6xl font-extrabold leading-tight">

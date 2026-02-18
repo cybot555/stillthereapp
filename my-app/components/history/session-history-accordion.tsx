@@ -1,7 +1,8 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
+import Image from 'next/image';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { cn, formatSchedule, formatTimeIn } from '@/lib/utils';
 
@@ -259,7 +260,7 @@ export function SessionHistoryAccordion({ sessions, logs, runs }: SessionHistory
                                   <th className="px-4 py-3">Student</th>
                                   <th className="px-4 py-3">Time-In</th>
                                   <th className="px-4 py-3">Status</th>
-                                  <th className="px-4 py-3">Proof</th>
+                                  <th className="px-4 py-3 text-center">Proof</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-100">
@@ -282,18 +283,23 @@ export function SessionHistoryAccordion({ sessions, logs, runs }: SessionHistory
                                         {log.status.toUpperCase()}
                                       </span>
                                     </td>
-                                    <td className="px-4 py-3">
-                                      <a
-                                        href={log.proof_url}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="inline-flex items-center gap-1 font-semibold text-brand-700 hover:text-brand-800"
-                                      >
-                                        View
-                                        <ExternalLink className="h-3.5 w-3.5" />
-                                      </a>
-                                    </td>
-                                  </tr>
+                                    <td className="px-4 py-3 text-center">
+                                    <a
+                                      href={log.proof_url}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="inline-flex w-full items-center justify-center gap-2 font-semibold text-brand-700 hover:text-brand-800"
+                                    >
+                                      <Image
+                                        src="/icons/viewprooflogo.png"
+                                        alt="View proof"
+                                        width={84}
+                                        height={16}
+                                        className="h-8 w-auto object-contain"
+                                      />
+                                    </a>
+                                  </td>
+                                </tr>
                                 ))}
                               </tbody>
                             </table>

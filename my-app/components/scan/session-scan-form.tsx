@@ -151,7 +151,7 @@ export function SessionScanForm({ session }: SessionScanFormProps) {
 
   if (submitted) {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-brand-500 via-brand-600 to-fuchsia-500 px-4 py-8 text-white">
+      <main className="min-h-screen bg-gradient-to-br from-brand-500 via-brand-500 to-brand-500 px-4 py-8 text-white">
         <div className="mx-auto w-full max-w-md rounded-3xl bg-white/95 p-6 text-center text-slate-900 shadow-card">
           <CheckCircle2 className="mx-auto h-12 w-12 text-emerald-500" />
           <h1 className="mt-3 text-2xl font-extrabold text-emerald-600">ATTENDANCE LOGGED</h1>
@@ -182,7 +182,7 @@ export function SessionScanForm({ session }: SessionScanFormProps) {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-brand-500 via-brand-600 to-fuchsia-500 px-4 py-6 text-white">
+    <main className="min-h-screen bg-gradient-to-br from-brand-500 via-brand-500 to-brand-500 px-4 py-6 text-white">
       <div className="mx-auto w-full max-w-md">
         <div className="mb-4 flex items-center gap-2">
           <QrCode className="h-6 w-6" />
