@@ -190,7 +190,7 @@ export function SessionScanForm({ session }: SessionScanFormProps) {
             alt="Still There"
             width={340}
             height={96}
-            className="h-20 w-auto max-w-full object-contain"
+            className="h-28 w-auto max-w-full object-contain"
             priority
           />
         </div>
