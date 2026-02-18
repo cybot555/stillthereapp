@@ -1,3 +1,5 @@
+@import 'react-datepicker/dist/react-datepicker.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -14,4 +16,64 @@ body {
     var(--background);
   color: var(--foreground);
   min-height: 100vh;
+}
+
+.tailwind-datepicker-popper {
+  z-index: 9999 !important;
+}
+
+.tailwind-datepicker-calendar.react-datepicker {
+  border: 0;
+  border-radius: 0.75rem;
+  background: #ffffff;
+  box-shadow: 0 14px 34px -14px rgba(15, 23, 42, 0.28);
+  font-family: inherit;
+  overflow: hidden;
+}
+
+.tailwind-datepicker-calendar .react-datepicker__triangle {
+  display: none;
+}
+
+.tailwind-datepicker-calendar .react-datepicker__header {
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.tailwind-datepicker-calendar .react-datepicker__current-month,
+.tailwind-datepicker-calendar .react-datepicker-time__header {
+  color: #1e293b;
+  font-weight: 700;
+}
+
+.tailwind-datepicker-calendar .react-datepicker__day,
+.tailwind-datepicker-calendar .react-datepicker__time-list-item {
+  border-radius: 0.5rem;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.tailwind-datepicker-calendar .react-datepicker__day:hover,
+.tailwind-datepicker-calendar .react-datepicker__time-list-item:hover {
+  background: #eff6ff;
+  color: #1e40af;
+}
+
+.tailwind-datepicker-calendar .react-datepicker__day--selected,
+.tailwind-datepicker-calendar .react-datepicker__day--keyboard-selected,
+.tailwind-datepicker-calendar .react-datepicker__time-list-item--selected {
+  background: #3b82f6 !important;
+  color: #ffffff !important;
+}
+
+.tailwind-datepicker-calendar .react-datepicker__time-container {
+  border-left: 1px solid #e2e8f0;
+}
+
+.tailwind-datepicker-calendar .react-datepicker__time-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.tailwind-datepicker-calendar .react-datepicker__time-list::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background: #cbd5e1;
 }

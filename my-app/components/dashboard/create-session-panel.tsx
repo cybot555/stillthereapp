@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import Image from 'next/image';
 import QRCode from 'qrcode';
-import { ImagePlus, Share2, Download, ArrowLeft, Clock3, Copy } from 'lucide-react';
+import DatePicker from 'react-datepicker';
+import { format as formatDate } from 'date-fns';
+import { ImagePlus, Share2, Download, ArrowLeft, Clock3, Copy, CalendarDays } from 'lucide-react';
 import { createSessionAction } from '@/lib/actions/dashboard';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -26,6 +28,42 @@ type CreateSessionPanelProps = {
   onComplete: (message: string) => void;
 };
 
+function toTimeString(value: Date) {
+  return `${String(value.getHours()).padStart(2, '0')}:${String(value.getMinutes()).padStart(2, '0')}`;
+}
+
+function toDateString(value: Date) {
+  return formatDate(value, 'yyyy-MM-dd');
+}
+
+function parseDateInput(value: string) {
+  if (!value) {
+    return null;
+  }
+
+  const [year, month, day] = value.split('-').map(Number);
+  if (!year || !month || !day) {
+    return null;
+  }
+
+  return new Date(year, month - 1, day);
+}
+
+function parseTimeInput(value: string, baseDate: Date) {
+  if (!value) {
+    return null;
+  }
+
+  const [hours, minutes] = value.split(':').map(Number);
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+    return null;
+  }
+
+  const result = new Date(baseDate);
+  result.setHours(hours, minutes, 0, 0);
+  return result;
+}
+
 export function CreateSessionPanel({ onCancel, onComplete }: CreateSessionPanelProps) {
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string>('');
@@ -36,6 +74,7 @@ export function CreateSessionPanel({ onCancel, onComplete }: CreateSessionPanelP
   const [date, setDate] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
+  const [useCustomTimes, setUseCustomTimes] = useState(false);
   const [startTimeError, setStartTimeError] = useState('');
   const [endTimeError, setEndTimeError] = useState('');
 
@@ -46,9 +85,19 @@ export function CreateSessionPanel({ onCancel, onComplete }: CreateSessionPanelP
   const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
   const isTodaySelected = date === todayDate;
+  const hasValidationErrors = Boolean(startTimeError || endTimeError);
+  const selectedDate = parseDateInput(date) ?? localNow;
+  const selectedStartDate = parseTimeInput(startTime, selectedDate);
+  const selectedEndDate = parseTimeInput(endTime, selectedDate);
+  const todayMinDate = parseDateInput(todayDate) ?? new Date();
+  const dayStart = new Date();
+  dayStart.setHours(0, 0, 0, 0);
+  const dayEnd = new Date();
+  dayEnd.setHours(23, 59, 59, 999);
+  const minStartTime = parseTimeInput(currentTime, localNow) ?? dayStart;
+  const minEndTime = selectedStartDate ?? dayStart;
   const startTimeMin = isTodaySelected ? currentTime : undefined;
   const endTimeMin = startTime || undefined;
-  const hasValidationErrors = Boolean(startTimeError || endTimeError);
 
   useEffect(() => {
     setBaseUrl(process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin);
@@ -198,55 +247,125 @@ export function CreateSessionPanel({ onCancel, onComplete }: CreateSessionPanelP
 
               <div className="grid gap-4 sm:grid-cols-3">
                 <div>
-                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Start Time</label>
+                  <div className="mb-1 flex items-center justify-between">
+                    <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Start Time</label>
+                    <button
+                      type="button"
+                      onClick={() => setUseCustomTimes((current) => !current)}
+                      className="text-[11px] font-semibold uppercase tracking-wide text-blue-600 hover:text-blue-700"
+                    >
+                      {useCustomTimes ? 'Use Picker' : 'Custom'}
+                    </button>
+                  </div>
                   <div className="relative">
                     <Clock3 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                    <input
-                      required
-                      type="time"
-                      name="start_time"
-                      value={startTime}
-                      min={startTimeMin}
-                      onChange={(event) => {
-                        const nextStartTime = event.target.value;
-                        setStartTime(nextStartTime);
+                    {useCustomTimes ? (
+                      <input
+                        type="time"
+                        value={startTime}
+                        min={startTimeMin}
+                        onChange={(event) => {
+                          const nextStartTime = event.target.value;
+                          setStartTime(nextStartTime);
 
-                        if (endTime && nextStartTime && nextStartTime >= endTime) {
-                          setEndTime('');
-                        }
-                      }}
-                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 pl-9 text-sm shadow-sm outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-200"
-                    />
+                          if (endTime && nextStartTime && nextStartTime >= endTime) {
+                            setEndTime('');
+                          }
+                        }}
+                        className="h-12 w-full rounded-2xl border border-slate-200 bg-white pl-11 pr-4 text-center text-sm shadow-sm outline-none transition-all duration-200 focus:border-blue-300 focus:ring-2 focus:ring-blue-200"
+                      />
+                    ) : (
+                      <DatePicker
+                        selected={selectedStartDate}
+                        onChange={(value: Date | null) => {
+                          if (!value) {
+                            setStartTime('');
+                            return;
+                          }
+
+                          const nextStartTime = toTimeString(value);
+                          setStartTime(nextStartTime);
+
+                          if (endTime && nextStartTime && nextStartTime >= endTime) {
+                            setEndTime('');
+                          }
+                        }}
+                        showTimeSelect
+                        showTimeSelectOnly
+                        showTimeInput
+                        timeIntervals={15}
+                        dateFormat="hh:mm aa"
+                        minTime={isTodaySelected ? minStartTime : dayStart}
+                        maxTime={dayEnd}
+                        placeholderText="Select start time"
+                        wrapperClassName="!block w-full"
+                        className="h-12 w-full rounded-2xl border border-slate-200 bg-white pl-11 pr-4 text-center text-sm shadow-sm outline-none transition-all duration-200 focus:border-blue-300 focus:ring-2 focus:ring-blue-200"
+                        calendarClassName="tailwind-datepicker-calendar"
+                        popperClassName="tailwind-datepicker-popper"
+                      />
+                    )}
                   </div>
+                  <input type="hidden" name="start_time" value={startTime} />
                   {startTimeError ? <p className="mt-1 text-xs text-red-600">{startTimeError}</p> : null}
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">End Time</label>
                   <div className="relative">
                     <Clock3 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                    <input
-                      required
-                      type="time"
-                      name="end_time"
-                      value={endTime}
-                      min={endTimeMin}
-                      onChange={(event) => setEndTime(event.target.value)}
-                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 pl-9 text-sm shadow-sm outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-200"
-                    />
+                    {useCustomTimes ? (
+                      <input
+                        type="time"
+                        value={endTime}
+                        min={endTimeMin}
+                        onChange={(event) => setEndTime(event.target.value)}
+                        className="h-12 w-full rounded-2xl border border-slate-200 bg-white pl-11 pr-4 text-center text-sm shadow-sm outline-none transition-all duration-200 focus:border-blue-300 focus:ring-2 focus:ring-blue-200"
+                      />
+                    ) : (
+                      <DatePicker
+                        selected={selectedEndDate}
+                        onChange={(value: Date | null) => {
+                          if (!value) {
+                            setEndTime('');
+                            return;
+                          }
+
+                          setEndTime(toTimeString(value));
+                        }}
+                        showTimeSelect
+                        showTimeSelectOnly
+                        showTimeInput
+                        timeIntervals={15}
+                        dateFormat="hh:mm aa"
+                        minTime={minEndTime}
+                        maxTime={dayEnd}
+                        placeholderText="Select end time"
+                        wrapperClassName="!block w-full"
+                        className="h-12 w-full rounded-2xl border border-slate-200 bg-white pl-11 pr-4 text-center text-sm shadow-sm outline-none transition-all duration-200 focus:border-blue-300 focus:ring-2 focus:ring-blue-200"
+                        calendarClassName="tailwind-datepicker-calendar"
+                        popperClassName="tailwind-datepicker-popper"
+                      />
+                    )}
                   </div>
+                  <input type="hidden" name="end_time" value={endTime} />
                   {endTimeError ? <p className="mt-1 text-xs text-red-600">{endTimeError}</p> : null}
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Date</label>
-                  <input
-                    required
-                    type="date"
-                    name="date"
-                    value={date}
-                    min={todayDate}
-                    onChange={(event) => setDate(event.target.value)}
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-brand-400"
-                  />
+                  <div className="relative">
+                    <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <DatePicker
+                      selected={parseDateInput(date)}
+                      onChange={(value: Date | null) => setDate(value ? toDateString(value) : '')}
+                      minDate={todayMinDate}
+                      dateFormat="MM/dd/yyyy"
+                      placeholderText="Select date"
+                      wrapperClassName="!block w-full"
+                      className="h-12 w-full rounded-2xl border border-slate-200 bg-white pl-11 pr-4 text-center text-sm shadow-sm outline-none transition-all duration-200 focus:border-blue-300 focus:ring-2 focus:ring-blue-200"
+                      calendarClassName="tailwind-datepicker-calendar"
+                      popperClassName="tailwind-datepicker-popper"
+                    />
+                  </div>
+                  <input type="hidden" name="date" value={date} />
                 </div>
               </div>
 
