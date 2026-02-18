@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Camera, CheckCircle2, ImagePlus, QrCode } from 'lucide-react';
+import { Camera, CheckCircle2, ImagePlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/client';
 import { submitAttendanceAction } from '@/lib/actions/attendance';
@@ -184,13 +184,19 @@ export function SessionScanForm({ session }: SessionScanFormProps) {
   return (
     <main className="min-h-screen bg-gradient-to-br from-brand-500 via-brand-500 to-brand-500 px-4 py-6 text-white">
       <div className="mx-auto w-full max-w-md">
-        <div className="mb-4 flex items-center gap-2">
-          <QrCode className="h-6 w-6" />
-          <p className="text-sm font-semibold uppercase tracking-wide">Still There</p>
+        <div className="mb-5 flex justify-center">
+          <Image
+            src="/icons/stilltherelogomobile.png"
+            alt="Still There"
+            width={340}
+            height={96}
+            className="h-20 w-auto max-w-full object-contain"
+            priority
+          />
         </div>
 
-        <h1 className="text-3xl font-extrabold">QR CODE SUCCESS</h1>
-        <p className="mt-1 text-sm text-white/90">Attach proof to confirm your attendance.</p>
+        <h1 className="text-3xl font-extrabold text-green-500 text-center">QR CODE SUCCESS</h1>
+        <p className="mt-1 text-sm text-white/90 text-center">Attach proof to confirm your attendance.</p>
 
         <div className="mt-4 rounded-3xl bg-white/95 p-4 text-slate-900 shadow-card">
           <h2 className="text-xl font-bold text-brand-700">ATTACH PROOF</h2>
@@ -220,7 +226,7 @@ export function SessionScanForm({ session }: SessionScanFormProps) {
           <div className="mt-4 space-y-3">
             <div>
               <label htmlFor="full_name" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-600">
-                Full Name
+                Full Name *
               </label>
               <input
                 id="full_name"
@@ -239,7 +245,7 @@ export function SessionScanForm({ session }: SessionScanFormProps) {
                 id="student_id"
                 value={studentId}
                 onChange={(event) => setStudentId(event.target.value)}
-                placeholder="e.g. 2026-00123"
+                placeholder="e.g. 2024-123456"
                 className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-200"
               />
             </div>
