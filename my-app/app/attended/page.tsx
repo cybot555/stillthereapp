@@ -4,10 +4,12 @@ import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { redirect } from 'next/navigation';
 import { SessionHistoryAccordion } from '@/components/history/session-history-accordion';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 
 export default async function AttendedSessionsPage() {
   const supabase = createClient();
+  const adminSupabase = createAdminClient();
   const {
     data: { user }
   } = await supabase.auth.getUser();
@@ -66,12 +68,12 @@ export default async function AttendedSessionsPage() {
 
   const [{ data: sessions }, { data: sessionRuns }] = sessionIds.length
     ? await Promise.all([
-        supabase
+        adminSupabase
           .from('sessions')
           .select('id, session_name, instructor, class, date, start_time, end_time, status')
           .in('id', sessionIds)
           .order('date', { ascending: false }),
-        supabase
+        adminSupabase
           .from('session_runs')
           .select('id, session_id, run_number, status, started_at, ended_at')
           .in('session_id', sessionIds)
