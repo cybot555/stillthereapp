@@ -1,14 +1,15 @@
 'use client';
 
-import { useEffect, useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import Image from 'next/image';
 import QRCode from 'qrcode';
 import DatePicker from 'react-datepicker';
 import { format as formatDate } from 'date-fns';
-import { ImagePlus, Share2, Download, ArrowLeft, Clock3, Copy, CalendarDays } from 'lucide-react';
-import { createSessionAction } from '@/lib/actions/dashboard';
+import { ImagePlus, Share2, Download, ArrowLeft, Clock3, Copy, CalendarDays, FileUp } from 'lucide-react';
+import { createSessionAction, importSessionPresetsAction } from '@/lib/actions/dashboard';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { SessionPreset } from '@/lib/types/app';
 import { cn } from '@/lib/utils';
 
 type ConfirmedSession = {
@@ -24,6 +25,7 @@ type ConfirmedSession = {
 };
 
 type CreateSessionPanelProps = {
+  presets: SessionPreset[];
   onCancel: () => void;
   onComplete: (message: string) => void;
 };
@@ -64,16 +66,73 @@ function parseTimeInput(value: string, baseDate: Date) {
   return result;
 }
 
-export function CreateSessionPanel({ onCancel, onComplete }: CreateSessionPanelProps) {
+type ParsedPresetRow = {
+  session_name: string;
+  instructor: string;
+  class: string;
+  start_time: string;
+  end_time: string;
+  row_number: number;
+};
+
+function normalizeHeader(value: string) {
+  return value.toLowerCase().trim().replace(/[\s-]+/g, '_');
+}
+
+function getCellValue(row: Record<string, unknown>, aliases: string[]) {
+  const normalizedAliases = new Set(aliases.map(normalizeHeader));
+
+  for (const [key, value] of Object.entries(row)) {
+    if (normalizedAliases.has(normalizeHeader(key))) {
+      return String(value ?? '').trim();
+    }
+  }
+
+  return '';
+}
+
+async function parsePresetFile(file: File): Promise<ParsedPresetRow[]> {
+  const xlsx = await import('xlsx');
+  const fileBuffer = await file.arrayBuffer();
+  const workbook = xlsx.read(fileBuffer, { type: 'array' });
+  const firstSheetName = workbook.SheetNames[0];
+
+  if (!firstSheetName) {
+    return [];
+  }
+
+  const sheet = workbook.Sheets[firstSheetName];
+  const records = xlsx.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' });
+
+  return records.map((record, index) => ({
+    session_name: getCellValue(record, ['session_name', 'session', 'session name']),
+    instructor: getCellValue(record, ['instructor', 'teacher', 'professor']),
+    class: getCellValue(record, ['class', 'class_name', 'section']),
+    start_time: getCellValue(record, ['start_time', 'start time', 'start']),
+    end_time: getCellValue(record, ['end_time', 'end time', 'end']),
+    row_number: index + 2
+  }));
+}
+
+export function CreateSessionPanel({ presets, onCancel, onComplete }: CreateSessionPanelProps) {
+  const presetFileInputRef = useRef<HTMLInputElement | null>(null);
   const [pending, startTransition] = useTransition();
+  const [importing, startImportTransition] = useTransition();
   const [message, setMessage] = useState<string>('');
+  const [importMessage, setImportMessage] = useState('');
+  const [importErrors, setImportErrors] = useState<string[]>([]);
   const [qrDataUrl, setQrDataUrl] = useState('');
   const [baseUrl, setBaseUrl] = useState(process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000');
   const [coverFileName, setCoverFileName] = useState('');
   const [confirmedSession, setConfirmedSession] = useState<ConfirmedSession | null>(null);
+  const [sessionName, setSessionName] = useState('');
+  const [instructorName, setInstructorName] = useState('');
+  const [className, setClassName] = useState('');
   const [date, setDate] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
+  const [selectedPresetId, setSelectedPresetId] = useState('');
+  const [presetOptions, setPresetOptions] = useState<SessionPreset[]>(presets);
   const [useCustomTimes, setUseCustomTimes] = useState(false);
   const [startTimeError, setStartTimeError] = useState('');
   const [endTimeError, setEndTimeError] = useState('');
@@ -86,7 +145,7 @@ export function CreateSessionPanel({ onCancel, onComplete }: CreateSessionPanelP
 
   const isTodaySelected = date === todayDate;
   const hasValidationErrors = Boolean(startTimeError || endTimeError);
-  const hasMissingScheduleFields = !date || !startTime || !endTime;
+  const hasMissingRequiredFields = !sessionName.trim() || !instructorName.trim() || !className.trim() || !date || !startTime || !endTime;
   const selectedDate = parseDateInput(date) ?? localNow;
   const selectedStartDate = parseTimeInput(startTime, selectedDate);
   const selectedEndDate = parseTimeInput(endTime, selectedDate);
@@ -103,6 +162,28 @@ export function CreateSessionPanel({ onCancel, onComplete }: CreateSessionPanelP
   useEffect(() => {
     setBaseUrl(process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin);
   }, []);
+
+  useEffect(() => {
+    setPresetOptions(presets);
+  }, [presets]);
+
+  useEffect(() => {
+    if (!selectedPresetId) {
+      return;
+    }
+
+    const selectedPreset = presetOptions.find((preset) => preset.id === selectedPresetId);
+
+    if (!selectedPreset) {
+      return;
+    }
+
+    setSessionName(selectedPreset.session_name);
+    setInstructorName(selectedPreset.instructor);
+    setClassName(selectedPreset.class);
+    setStartTime(selectedPreset.start_time.slice(0, 5));
+    setEndTime(selectedPreset.end_time.slice(0, 5));
+  }, [presetOptions, selectedPresetId]);
 
   const normalizedBaseUrl = useMemo(() => baseUrl.replace(/\/$/, ''), [baseUrl]);
 
@@ -150,14 +231,17 @@ export function CreateSessionPanel({ onCancel, onComplete }: CreateSessionPanelP
       return;
     }
 
-    const sessionName = String(formData.get('session_name') ?? '').trim();
-    const instructor = String(formData.get('instructor') ?? '').trim();
-    const className = String(formData.get('class') ?? '').trim();
-
-    if (!sessionName || !instructor || !className || !date || !startTime || !endTime) {
+    if (!sessionName.trim() || !instructorName.trim() || !className.trim() || !date || !startTime || !endTime) {
       setMessage('Please fill out all required fields.');
       return;
     }
+
+    formData.set('session_name', sessionName.trim());
+    formData.set('instructor', instructorName.trim());
+    formData.set('class', className.trim());
+    formData.set('date', date);
+    formData.set('start_time', startTime);
+    formData.set('end_time', endTime);
 
     setMessage('');
 
@@ -167,6 +251,31 @@ export function CreateSessionPanel({ onCancel, onComplete }: CreateSessionPanelP
 
       if (result.ok && result.session) {
         setConfirmedSession(result.session);
+      }
+    });
+  }
+
+  function handleImportPresets(file: File | null) {
+    if (!file) {
+      return;
+    }
+
+    setImportMessage('');
+    setImportErrors([]);
+
+    startImportTransition(async () => {
+      try {
+        const rows = await parsePresetFile(file);
+        const result = await importSessionPresetsAction(rows);
+        setImportMessage(result.message);
+        setImportErrors(result.errors);
+
+        if (result.ok && result.presets) {
+          setPresetOptions(result.presets as SessionPreset[]);
+        }
+      } catch (error) {
+        setImportMessage(error instanceof Error ? error.message : 'Failed to parse file.');
+        setImportErrors([]);
       }
     });
   }
@@ -223,16 +332,61 @@ export function CreateSessionPanel({ onCancel, onComplete }: CreateSessionPanelP
               action={handleSubmit}
               className="mt-6 space-y-4"
               onSubmit={(event) => {
-                if (hasValidationErrors || hasMissingScheduleFields) {
+                if (hasValidationErrors || hasMissingRequiredFields) {
                   event.preventDefault();
                 }
               }}
             >
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                <div className="grid gap-3 sm:grid-cols-[auto_1fr] sm:items-end">
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Import Presets</label>
+                    <input
+                      ref={presetFileInputRef}
+                      type="file"
+                      accept=".csv,.xlsx,.xls"
+                      className="hidden"
+                      onChange={(event) => {
+                        handleImportPresets(event.target.files?.[0] ?? null);
+                        event.target.value = '';
+                      }}
+                    />
+                    <Button type="button" variant="secondary" className="gap-2" onClick={() => presetFileInputRef.current?.click()}>
+                      <FileUp className="h-4 w-4" />
+                      {importing ? 'Importing...' : 'Upload CSV/XLSX'}
+                    </Button>
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Use Preset</label>
+                    <select
+                      value={selectedPresetId}
+                      onChange={(event) => setSelectedPresetId(event.target.value)}
+                      className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-brand-400"
+                    >
+                      <option value="">Select a preset</option>
+                      {presetOptions.map((preset) => (
+                        <option key={preset.id} value={preset.id}>
+                          {preset.session_name} • {preset.class} • {preset.start_time.slice(0, 5)}-{preset.end_time.slice(0, 5)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {importMessage ? (
+                  <p className={cn('mt-2 text-xs font-medium', importErrors.length ? 'text-amber-700' : 'text-emerald-700')}>{importMessage}</p>
+                ) : null}
+                {importErrors.length ? <p className="mt-1 text-xs text-rose-600">{importErrors.slice(0, 3).join(' ')}</p> : null}
+              </div>
+
               <div>
                 <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Session Name</label>
                 <input
                   required
                   name="session_name"
+                  value={sessionName}
+                  onChange={(event) => setSessionName(event.target.value)}
                   className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-brand-400"
                 />
               </div>
@@ -242,6 +396,8 @@ export function CreateSessionPanel({ onCancel, onComplete }: CreateSessionPanelP
                 <input
                   required
                   name="instructor"
+                  value={instructorName}
+                  onChange={(event) => setInstructorName(event.target.value)}
                   className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-brand-400"
                 />
               </div>
@@ -251,6 +407,8 @@ export function CreateSessionPanel({ onCancel, onComplete }: CreateSessionPanelP
                 <input
                   required
                   name="class"
+                  value={className}
+                  onChange={(event) => setClassName(event.target.value)}
                   className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-brand-400"
                 />
               </div>
@@ -412,7 +570,7 @@ export function CreateSessionPanel({ onCancel, onComplete }: CreateSessionPanelP
                 <Button
                   type="submit"
                   className="bg-emerald-500 hover:bg-emerald-600"
-                  disabled={pending || hasValidationErrors || hasMissingScheduleFields}
+                  disabled={pending || hasValidationErrors || hasMissingRequiredFields}
                 >
                   {pending ? 'Confirming...' : 'Confirm'}
                 </Button>

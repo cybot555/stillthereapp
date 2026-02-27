@@ -21,6 +21,46 @@ type ActionResult = {
   run?: SessionRun | null;
 };
 
+type SessionPresetInput = {
+  session_name: string;
+  instructor: string;
+  class: string;
+  start_time: string;
+  end_time: string;
+  row_number?: number;
+};
+
+type ImportSessionPresetsResult = {
+  ok: boolean;
+  message: string;
+  imported: number;
+  errors: string[];
+  presets?: Array<{
+    id: string;
+    session_name: string;
+    instructor: string;
+    class: string;
+    start_time: string;
+    end_time: string;
+  }>;
+};
+
+type ParsedPresetRowResult =
+  | {
+      error: string;
+      data?: never;
+    }
+  | {
+      error?: never;
+      data: {
+        session_name: string;
+        instructor: string;
+        class: string;
+        start_time: string;
+        end_time: string;
+      };
+    };
+
 function normalizeRunResult(data: unknown): SessionRun | null {
   if (!data) {
     return null;
@@ -108,10 +148,144 @@ function parseDate(value: string) {
   return value;
 }
 
+function parsePresetRow(row: SessionPresetInput, index: number): ParsedPresetRowResult {
+  const rowNumber = row.row_number ?? index + 1;
+  const sessionName = String(row.session_name ?? '').trim();
+  const instructor = String(row.instructor ?? '').trim();
+  const className = String(row.class ?? '').trim();
+  const startTime = parseTime(String(row.start_time ?? '').trim());
+  const endTime = parseTime(String(row.end_time ?? '').trim());
+
+  if (!sessionName || !instructor || !className || !startTime || !endTime) {
+    return {
+      error: `Row ${rowNumber}: missing or invalid required fields.`
+    };
+  }
+
+  if (endTime <= startTime) {
+    return {
+      error: `Row ${rowNumber}: end time must be after start time.`
+    };
+  }
+
+  return {
+    data: {
+      session_name: sessionName,
+      instructor,
+      class: className,
+      start_time: startTime,
+      end_time: endTime
+    }
+  };
+}
+
 function getTodayInLocalTimezone() {
   const now = new Date();
   const offset = now.getTimezoneOffset();
   return new Date(now.getTime() - offset * 60_000).toISOString().slice(0, 10);
+}
+
+export async function importSessionPresetsAction(rows: SessionPresetInput[]): Promise<ImportSessionPresetsResult> {
+  const supabase = createClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      ok: false,
+      message: 'Authentication required.',
+      imported: 0,
+      errors: []
+    };
+  }
+
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return {
+      ok: false,
+      message: 'No rows found in file.',
+      imported: 0,
+      errors: []
+    };
+  }
+
+  const normalizedRows = rows.slice(0, 500);
+  const errors: string[] = [];
+  const validRows: Array<{
+    user_id: string;
+    session_name: string;
+    instructor: string;
+    class: string;
+    start_time: string;
+    end_time: string;
+  }> = [];
+
+  normalizedRows.forEach((row, index) => {
+    const parsed = parsePresetRow(row, index);
+
+    if (parsed.error) {
+      errors.push(parsed.error);
+      return;
+    }
+
+    if (!parsed.data) {
+      errors.push(`Row ${row.row_number ?? index + 1}: invalid data.`);
+      return;
+    }
+
+    validRows.push({
+      user_id: user.id,
+      ...parsed.data
+    });
+  });
+
+  if (!validRows.length) {
+    return {
+      ok: false,
+      message: 'No valid presets to import.',
+      imported: 0,
+      errors
+    };
+  }
+
+  const { error: importError } = await supabase.from('session_presets').upsert(validRows, {
+    onConflict: 'user_id,session_name,instructor,class,start_time,end_time',
+    ignoreDuplicates: false
+  });
+
+  if (importError) {
+    return {
+      ok: false,
+      message: importError.message,
+      imported: 0,
+      errors
+    };
+  }
+
+  const { data: presets, error: presetsError } = await supabase
+    .from('session_presets')
+    .select('id, session_name, instructor, class, start_time, end_time')
+    .eq('user_id', user.id)
+    .order('session_name', { ascending: true });
+
+  if (presetsError) {
+    return {
+      ok: false,
+      message: presetsError.message,
+      imported: 0,
+      errors
+    };
+  }
+
+  revalidatePath('/dashboard');
+
+  return {
+    ok: true,
+    message: `Imported ${validRows.length} preset${validRows.length === 1 ? '' : 's'}.`,
+    imported: validRows.length,
+    errors,
+    presets: presets ?? []
+  };
 }
 
 export async function createSessionAction(formData: FormData): Promise<ActionResult> {

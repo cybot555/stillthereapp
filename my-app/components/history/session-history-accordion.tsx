@@ -157,9 +157,7 @@ export function SessionHistoryAccordion({ sessions, logs, runs }: SessionHistory
                   <p className="text-sm text-slate-600">{session.class}</p>
                   <p className="text-sm font-semibold text-brand-700">{sessionLogs.length}</p>
                   <p className="text-sm text-slate-600">{session.instructor}</p>
-                  <p className="text-sm text-slate-600">
-                    {session.start_time} - {session.end_time}
-                  </p>
+                  <p className="text-sm text-slate-600">{formatSchedule(session.date, session.start_time, session.end_time)}</p>
                   <span className="ml-auto text-slate-500">
                     {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                   </span>

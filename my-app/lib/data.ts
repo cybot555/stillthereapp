@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
-import { AttendanceLog, AttendanceRecord, Profile, Session, SessionRun } from '@/lib/types/app';
+import { AttendanceLog, AttendanceRecord, Profile, Session, SessionPreset, SessionRun } from '@/lib/types/app';
 
 export async function getDashboardData() {
   const supabase = createClient();
@@ -13,12 +13,13 @@ export async function getDashboardData() {
       profile: null,
       activeSession: null,
       currentRun: null,
+      sessionPresets: [] as SessionPreset[],
       attendance: [] as AttendanceRecord[],
       history: [] as Session[]
     };
   }
 
-  const [{ data: profile }, { data: activeSession }, { data: history }] = await Promise.all([
+  const [{ data: profile }, { data: activeSession }, { data: history }, { data: sessionPresets }] = await Promise.all([
     supabase.from('users').select('*').eq('id', user.id).maybeSingle<Profile>(),
     supabase
       .from('sessions')
@@ -34,7 +35,13 @@ export async function getDashboardData() {
       .eq('user_id', user.id)
       .order('date', { ascending: false })
       .limit(20)
-      .returns<Session[]>()
+      .returns<Session[]>(),
+    supabase
+      .from('session_presets')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('session_name', { ascending: true })
+      .returns<SessionPreset[]>()
   ]);
 
   let attendance: AttendanceRecord[] = [];
@@ -61,6 +68,7 @@ export async function getDashboardData() {
     profile: profile ?? null,
     activeSession: activeSession ?? null,
     currentRun,
+    sessionPresets: sessionPresets ?? [],
     attendance,
     history: history ?? []
   };

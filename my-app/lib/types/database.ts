@@ -83,6 +83,47 @@ export type Database = {
           }
         ];
       };
+      session_presets: {
+        Row: {
+          id: string;
+          user_id: string;
+          session_name: string;
+          instructor: string;
+          class: string;
+          start_time: string;
+          end_time: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          session_name: string;
+          instructor: string;
+          class: string;
+          start_time: string;
+          end_time: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          session_name?: string;
+          instructor?: string;
+          class?: string;
+          start_time?: string;
+          end_time?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'session_presets_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
       attendance: {
         Row: {
           id: string;

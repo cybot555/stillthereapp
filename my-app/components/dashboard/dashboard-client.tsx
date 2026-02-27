@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { CalendarCheck2, Clock3, Plus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/browser';
 import { endSessionAction, setSessionPauseAction, startOrGetActiveRun } from '@/lib/actions/dashboard';
-import { AttendanceRecord, Session, SessionRun } from '@/lib/types/app';
+import { AttendanceRecord, Session, SessionPreset, SessionRun } from '@/lib/types/app';
 import { ActionTile } from '@/components/dashboard/action-tile';
 import { AttendanceList } from '@/components/dashboard/attendance-list';
 import { CreateSessionPanel } from '@/components/dashboard/create-session-panel';
@@ -19,9 +19,10 @@ type DashboardClientProps = {
   activeSession: Session | null;
   initialAttendance: AttendanceRecord[];
   initialRun: SessionRun | null;
+  initialPresets: SessionPreset[];
 };
 
-export function DashboardClient({ activeSession, initialAttendance, initialRun }: DashboardClientProps) {
+export function DashboardClient({ activeSession, initialAttendance, initialRun, initialPresets }: DashboardClientProps) {
   const router = useRouter();
   const [showCreatePanel, setShowCreatePanel] = useState(false);
   const [attendance, setAttendance] = useState(initialAttendance);
@@ -172,7 +173,7 @@ export function DashboardClient({ activeSession, initialAttendance, initialRun }
       {feedback ? <p className="rounded-xl bg-brand-50 px-4 py-3 text-sm font-medium text-brand-700">{feedback}</p> : null}
 
       {showCreatePanel ? (
-        <CreateSessionPanel onCancel={() => setShowCreatePanel(false)} onComplete={handleCompleteCreate} />
+        <CreateSessionPanel presets={initialPresets} onCancel={() => setShowCreatePanel(false)} onComplete={handleCompleteCreate} />
       ) : (
         <div className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
           <Card className="p-6">

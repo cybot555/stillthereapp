@@ -8,7 +8,7 @@ import { getDashboardData } from '@/lib/data';
 
 export default async function DashboardPage() {
   await upsertProfileFromAuth();
-  const { user, activeSession, currentRun, attendance } = await getDashboardData();
+  const { user, activeSession, currentRun, attendance, sessionPresets } = await getDashboardData();
 
   if (!user) {
     redirect('/login');
@@ -20,7 +20,12 @@ export default async function DashboardPage() {
     <main className="min-h-screen w-full">
       <TopNavbar email={userEmail} />
       <div className="mx-auto w-full max-w-7xl px-4 pb-6 md:px-8">
-        <DashboardClient activeSession={activeSession} initialAttendance={attendance} initialRun={currentRun} />
+        <DashboardClient
+          activeSession={activeSession}
+          initialAttendance={attendance}
+          initialRun={currentRun}
+          initialPresets={sessionPresets}
+        />
       </div>
     </main>
   );

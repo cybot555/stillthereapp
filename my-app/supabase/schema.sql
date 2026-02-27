@@ -30,6 +30,20 @@ create table if not exists public.sessions (
 alter table public.sessions
   add column if not exists is_paused boolean not null default false;
 
+create table if not exists public.session_presets (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.users(id) on delete cascade,
+  session_name text not null,
+  instructor text not null,
+  class text not null,
+  start_time time not null,
+  end_time time not null,
+  created_at timestamptz not null default now()
+);
+
+create unique index if not exists session_presets_unique_per_user
+on public.session_presets(user_id, session_name, instructor, class, start_time, end_time);
+
 create table if not exists public.session_runs (
   id uuid primary key default gen_random_uuid(),
   session_id uuid not null references public.sessions(id) on delete cascade,
@@ -75,6 +89,7 @@ where run_id is not null;
 
 alter table public.users enable row level security;
 alter table public.sessions enable row level security;
+alter table public.session_presets enable row level security;
 alter table public.session_runs enable row level security;
 alter table public.attendance enable row level security;
 alter table public.attendance_logs enable row level security;
@@ -100,6 +115,23 @@ create policy "sessions_insert_own" on public.sessions
 
 create policy "sessions_update_own" on public.sessions
   for update using (auth.uid() = user_id);
+
+create policy "session_presets_select_own" on public.session_presets
+  for select to authenticated
+  using (auth.uid() = user_id);
+
+create policy "session_presets_insert_own" on public.session_presets
+  for insert to authenticated
+  with check (auth.uid() = user_id);
+
+create policy "session_presets_update_own" on public.session_presets
+  for update to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+create policy "session_presets_delete_own" on public.session_presets
+  for delete to authenticated
+  using (auth.uid() = user_id);
 
 create policy "session_runs_select_owner" on public.session_runs
   for select to authenticated
