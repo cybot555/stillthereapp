@@ -1,13 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { FormEvent, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { FormEvent, Suspense, useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase/client';
 
-export default function SignupPage() {
+function SignupPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = useMemo(() => createClient(), []);
 
   const [email, setEmail] = useState('');
@@ -16,6 +17,7 @@ export default function SignupPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [pending, setPending] = useState(false);
+  const next = searchParams.get('next');
 
   async function handleSignup(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -41,7 +43,8 @@ export default function SignupPage() {
     }
 
     if (data.session) {
-      router.push('/dashboard');
+      const redirectTo = next && next.startsWith('/') ? next : '/dashboard';
+      router.push(redirectTo);
       router.refresh();
       return;
     }
@@ -133,7 +136,10 @@ export default function SignupPage() {
 
           <p className="mt-6 text-sm text-slate-600">
             Already have an account?
-            <Link href="/login" className="ml-1 font-semibold text-brand-700 hover:text-brand-800">
+            <Link
+              href={next && next.startsWith('/') ? `/login?next=${encodeURIComponent(next)}` : '/login'}
+              className="ml-1 font-semibold text-brand-700 hover:text-brand-800"
+            >
               Log in
             </Link>
           </p>
@@ -156,5 +162,13 @@ export default function SignupPage() {
         </div> */}
       </section>
     </main>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense fallback={null}>
+      <SignupPageContent />
+    </Suspense>
   );
 }

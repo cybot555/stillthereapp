@@ -22,10 +22,17 @@ export async function upsertProfileFromAuth() {
     return;
   }
 
+  const { data: existingProfile } = await supabase
+    .from('users')
+    .select('full_name, school_id, avatar_url')
+    .eq('id', user.id)
+    .maybeSingle();
+
   await supabase.from('users').upsert({
     id: user.id,
     email: user.email ?? '',
-    full_name: user.user_metadata.full_name ?? user.user_metadata.name ?? null,
-    avatar_url: user.user_metadata.avatar_url ?? null
+    full_name: existingProfile?.full_name ?? user.user_metadata.full_name ?? user.user_metadata.name ?? null,
+    school_id: existingProfile?.school_id ?? null,
+    avatar_url: existingProfile?.avatar_url ?? user.user_metadata.avatar_url ?? null
   });
 }

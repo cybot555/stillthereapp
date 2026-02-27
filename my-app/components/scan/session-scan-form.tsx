@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Camera, CheckCircle2, ImagePlus } from 'lucide-react';
+import { Camera, CheckCircle2, ImagePlus, LogIn, UserRoundCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/client';
 import { submitAttendanceAction } from '@/lib/actions/attendance';
@@ -29,6 +29,12 @@ export function SessionScanForm({ session }: SessionScanFormProps) {
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
 
+  const [entryMode, setEntryMode] = useState<'gate' | 'guest' | 'account'>('gate');
+  const [linkToAccount, setLinkToAccount] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [accountEmail, setAccountEmail] = useState('');
+  const [accountFullName, setAccountFullName] = useState('');
+  const [accountSchoolId, setAccountSchoolId] = useState('');
   const [fullName, setFullName] = useState('');
   const [studentId, setStudentId] = useState('');
   const [proofFile, setProofFile] = useState<File | null>(null);
@@ -41,6 +47,43 @@ export function SessionScanForm({ session }: SessionScanFormProps) {
   const [activeRunNumber, setActiveRunNumber] = useState<number | null>(session.active_run_number);
   const pausedMessage = 'Attendance logging is currently paused by the instructor.';
   const closedMessage = 'This session is closed.';
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadAccountProfile() {
+      const {
+        data: { user }
+      } = await supabase.auth.getUser();
+
+      if (!mounted) {
+        return;
+      }
+
+      if (!user) {
+        setIsAuthenticated(false);
+        return;
+      }
+
+      setIsAuthenticated(true);
+      setAccountEmail(user.email ?? '');
+
+      const { data: profile } = await supabase.from('users').select('full_name, school_id').eq('id', user.id).maybeSingle();
+
+      if (!mounted) {
+        return;
+      }
+
+      setAccountFullName(profile?.full_name ?? '');
+      setAccountSchoolId(profile?.school_id ?? '');
+    }
+
+    void loadAccountProfile();
+
+    return () => {
+      mounted = false;
+    };
+  }, [supabase]);
 
   useEffect(() => {
     let mounted = true;
@@ -126,9 +169,14 @@ export function SessionScanForm({ session }: SessionScanFormProps) {
     setError('');
 
     try {
+      const {
+        data: { user }
+      } = await supabase.auth.getUser();
+      const effectiveStudentId = linkToAccount ? studentId.trim() || user?.id || user?.email || '' : studentId.trim();
+
       const formData = new FormData();
       formData.set('student_name', studentName);
-      formData.set('student_id', studentId.trim());
+      formData.set('student_id', effectiveStudentId);
       formData.set('proof_image', proofFile);
 
       const result = await submitAttendanceAction(session.id, formData);
@@ -184,6 +232,92 @@ export function SessionScanForm({ session }: SessionScanFormProps) {
   return (
     <main className="min-h-screen bg-gradient-to-br from-brand-500 via-brand-500 to-brand-500 px-4 py-6 text-white">
       <div className="mx-auto w-full max-w-md">
+        {entryMode === 'gate' ? (
+          <>
+            <div className="mb-5 flex justify-center">
+              <Image
+                src="/icons/stilltherelogomobile.png"
+                alt="Still There"
+                width={340}
+                height={96}
+                className="h-28 w-auto max-w-full object-contain"
+                priority
+              />
+            </div>
+
+            <h1 className="text-center text-4xl font-extrabold text-lime-300">QR CODE SUCCESS</h1>
+            <p className="mt-1 text-center text-sm text-white/90">Choose how you want to continue.</p>
+
+            <div className="mt-4 rounded-3xl bg-white/95 p-4 text-slate-900 shadow-card transition-all duration-300 ease-in-out">
+              <h2 className="text-xl font-bold text-brand-700">ATTENDANCE OPTIONS</h2>
+
+              <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
+                <p>
+                  <span className="font-bold text-slate-900">SESSION NAME:</span> {session.session_name}
+                </p>
+                <p className="mt-1">
+                  <span className="font-bold text-slate-900">INSTRUCTOR:</span> {session.instructor}
+                </p>
+                <p className="mt-1">
+                  <span className="font-bold text-slate-900">CLASS:</span> {session.class}
+                </p>
+                <p className="mt-1">
+                  <span className="font-bold text-slate-900">SCHEDULE:</span>{' '}
+                  {formatSchedule(session.date, session.start_time, session.end_time)}
+                </p>
+              </div>
+
+              <div className="mt-4 space-y-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="w-full justify-center gap-2 transition-all duration-300 ease-in-out"
+                  onClick={() => {
+                    setEntryMode('guest');
+                    setLinkToAccount(false);
+                    setFullName('');
+                    setStudentId('');
+                    setError('');
+                  }}
+                >
+                  Continue without logging in
+                </Button>
+
+                {isAuthenticated ? (
+                  <Button
+                    type="button"
+                    className="w-full justify-center gap-2 transition-all duration-300 ease-in-out"
+                    onClick={() => {
+                      setEntryMode('account');
+                      setLinkToAccount(true);
+                      setFullName(accountFullName || accountEmail || '');
+                      setStudentId(accountSchoolId || '');
+                      setError('');
+                    }}
+                  >
+                    <UserRoundCheck className="h-4 w-4" />
+                    Continue with account
+                  </Button>
+                ) : (
+                  <Link
+                    href="/login"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition-all duration-300 ease-in-out hover:bg-brand-700"
+                  >
+                    <LogIn className="h-4 w-4" />
+                    Log in first
+                  </Link>
+                )}
+              </div>
+
+              {!isAuthenticated ? (
+                <p className="mt-3 text-xs text-slate-500">Log in from here to access your account, then scan this QR again.</p>
+              ) : null}
+            </div>
+          </>
+        ) : null}
+
+        {entryMode !== 'gate' ? (
+          <>
         <div className="mb-5 flex justify-center">
           <Image
             src="/icons/stilltherelogomobile.png"
@@ -200,6 +334,9 @@ export function SessionScanForm({ session }: SessionScanFormProps) {
 
         <div className="mt-4 rounded-3xl bg-white/95 p-4 text-slate-900 shadow-card">
           <h2 className="text-xl font-bold text-brand-700">ATTACH PROOF</h2>
+          {entryMode === 'account' ? (
+            <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-emerald-700">Account mode: fields prefilled from profile</p>
+          ) : null}
 
           {blockedMessage ? (
             <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700 transition-all duration-300 ease-in-out">
@@ -294,8 +431,13 @@ export function SessionScanForm({ session }: SessionScanFormProps) {
               type="button"
               variant="danger"
               onClick={() => {
-                setFullName('');
-                setStudentId('');
+                if (entryMode === 'account') {
+                  setFullName(accountFullName || accountEmail || '');
+                  setStudentId(accountSchoolId || '');
+                } else {
+                  setFullName('');
+                  setStudentId('');
+                }
                 setProofFile(null);
                 setPreviewUrl('');
                 setError('');
@@ -314,6 +456,8 @@ export function SessionScanForm({ session }: SessionScanFormProps) {
             </Button>
           </div>
         </div>
+          </>
+        ) : null}
       </div>
     </main>
   );

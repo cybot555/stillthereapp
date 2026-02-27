@@ -18,6 +18,7 @@ function LoginPageContent() {
   const [pending, setPending] = useState(false);
 
   const message = searchParams.get('message');
+  const next = searchParams.get('next');
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -35,7 +36,8 @@ function LoginPageContent() {
       return;
     }
 
-    router.push('/dashboard');
+    const redirectTo = next && next.startsWith('/') ? next : '/dashboard';
+    router.push(redirectTo);
     router.refresh();
   }
 
@@ -104,7 +106,10 @@ function LoginPageContent() {
 
           <p className="mt-6 text-sm text-slate-600">
             New here?
-            <Link href="/signup" className="ml-1 font-semibold text-brand-700 hover:text-brand-800">
+            <Link
+              href={next && next.startsWith('/') ? `/signup?next=${encodeURIComponent(next)}` : '/signup'}
+              className="ml-1 font-semibold text-brand-700 hover:text-brand-800"
+            >
               Create an account
             </Link>
           </p>

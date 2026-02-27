@@ -7,9 +7,13 @@ create table if not exists public.users (
   id uuid primary key references auth.users(id) on delete cascade,
   email text not null unique,
   full_name text,
+  school_id text,
   avatar_url text,
   created_at timestamptz not null default now()
 );
+
+alter table public.users
+  add column if not exists school_id text;
 
 create table if not exists public.sessions (
   id uuid primary key default gen_random_uuid(),
@@ -82,6 +86,8 @@ alter table public.attendance_logs
   add column if not exists run_id uuid references public.session_runs(id) on delete cascade;
 
 create index if not exists attendance_logs_run_id_idx on public.attendance_logs(run_id);
+create index if not exists attendance_logs_student_id_idx on public.attendance_logs(student_id);
+create index if not exists attendance_logs_student_name_lower_idx on public.attendance_logs(lower(student_name));
 create unique index if not exists attendance_logs_run_student_unique on public.attendance_logs(run_id, student_id)
 where run_id is not null and student_id is not null;
 create unique index if not exists attendance_logs_run_student_name_unique on public.attendance_logs(run_id, student_name)
@@ -187,6 +193,105 @@ create policy "attendance_logs_select_owner" on public.attendance_logs
       select 1
       from public.sessions s
       where s.id = attendance_logs.session_id and s.user_id = auth.uid()
+    )
+  );
+
+create policy "attendance_logs_select_self" on public.attendance_logs
+  for select to authenticated
+  using (
+    attendance_logs.student_id = auth.uid()::text
+    or (
+      auth.jwt()->>'email' is not null
+      and attendance_logs.student_id = auth.jwt()->>'email'
+    )
+    or (
+      auth.jwt()->>'email' is not null
+      and lower(attendance_logs.student_name) = lower(auth.jwt()->>'email')
+    )
+    or exists (
+      select 1
+      from public.users u
+      where u.id = auth.uid()
+        and u.school_id is not null
+        and attendance_logs.student_id = u.school_id
+    )
+    or exists (
+      select 1
+      from public.users u
+      where u.id = auth.uid()
+        and u.full_name is not null
+        and lower(attendance_logs.student_name) = lower(u.full_name)
+    )
+  );
+
+create policy "sessions_select_attended" on public.sessions
+  for select to authenticated
+  using (
+    exists (
+      select 1
+      from public.attendance_logs al
+      where al.session_id = sessions.id
+        and (
+          al.student_id = auth.uid()::text
+          or (
+            auth.jwt()->>'email' is not null
+            and al.student_id = auth.jwt()->>'email'
+          )
+          or (
+            auth.jwt()->>'email' is not null
+            and lower(al.student_name) = lower(auth.jwt()->>'email')
+          )
+          or exists (
+            select 1
+            from public.users u
+            where u.id = auth.uid()
+              and u.school_id is not null
+              and al.student_id = u.school_id
+          )
+          or exists (
+            select 1
+            from public.users u
+            where u.id = auth.uid()
+              and u.full_name is not null
+              and lower(al.student_name) = lower(u.full_name)
+          )
+        )
+    )
+  );
+
+create policy "session_runs_select_attended" on public.session_runs
+  for select to authenticated
+  using (
+    exists (
+      select 1
+      from public.attendance_logs al
+      where al.run_id = session_runs.id
+        and al.session_id = session_runs.session_id
+        and (
+          al.student_id = auth.uid()::text
+          or (
+            auth.jwt()->>'email' is not null
+            and al.student_id = auth.jwt()->>'email'
+          )
+          or (
+            auth.jwt()->>'email' is not null
+            and lower(al.student_name) = lower(auth.jwt()->>'email')
+          )
+          or exists (
+            select 1
+            from public.users u
+            where u.id = auth.uid()
+              and u.school_id is not null
+              and al.student_id = u.school_id
+          )
+          or exists (
+            select 1
+            from public.users u
+            where u.id = auth.uid()
+              and u.full_name is not null
+              and lower(al.student_name) = lower(u.full_name)
+          )
+        )
     )
   );
 
@@ -322,6 +427,10 @@ insert into storage.buckets (id, name, public)
 values ('proofs', 'proofs', true)
 on conflict (id) do nothing;
 
+insert into storage.buckets (id, name, public)
+values ('profile-avatars', 'profile-avatars', true)
+on conflict (id) do nothing;
+
 create policy "session_covers_upload_own" on storage.objects
   for insert to authenticated
   with check (
@@ -348,5 +457,34 @@ create policy "proofs_public_insert" on storage.objects
 create policy "proofs_public_read" on storage.objects
   for select to public
   using (bucket_id = 'proofs');
+
+create policy "profile_avatars_insert_own" on storage.objects
+  for insert to authenticated
+  with check (
+    bucket_id = 'profile-avatars'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+create policy "profile_avatars_update_own" on storage.objects
+  for update to authenticated
+  using (
+    bucket_id = 'profile-avatars'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  )
+  with check (
+    bucket_id = 'profile-avatars'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+create policy "profile_avatars_delete_own" on storage.objects
+  for delete to authenticated
+  using (
+    bucket_id = 'profile-avatars'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+create policy "profile_avatars_public_read" on storage.objects
+  for select to public
+  using (bucket_id = 'profile-avatars');
 
 alter publication supabase_realtime add table public.attendance;
