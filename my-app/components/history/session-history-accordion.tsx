@@ -44,6 +44,134 @@ type SessionHistoryAccordionProps = {
   runs: HistoryRun[];
 };
 
+type SessionAnalytics = {
+  attendancePercent: number;
+  stillThereScore: number;
+  missingCheckpoints: number;
+  completedAll: number;
+  missedOne: number;
+  missedTwoPlus: number;
+  avgDelaySeconds: number | null;
+  engagementRating: 'High' | 'Medium' | 'Low';
+  summary: string;
+};
+
+function formatDelay(seconds: number | null) {
+  if (seconds === null) {
+    return 'N/A';
+  }
+
+  const minutes = Math.floor(seconds / 60);
+  const remaining = Math.round(seconds % 60);
+  return `${minutes}m ${String(remaining).padStart(2, '0')}s`;
+}
+
+function buildSummary(analytics: Omit<SessionAnalytics, 'summary'>) {
+  if (analytics.completedAll === 0 && analytics.missedOne === 0 && analytics.missedTwoPlus === 0) {
+    return 'Not enough attendance data yet to generate insights.';
+  }
+
+  if (analytics.engagementRating === 'High') {
+    return 'Attendance consistency is strong. Most learners stayed active across checkpoints.';
+  }
+
+  if (analytics.engagementRating === 'Medium') {
+    return 'Participation is moderate. A few checkpoints were missed, so engagement may be dropping mid-session.';
+  }
+
+  return 'Attendance was recorded, but many checkpoints were missed. Consider shortening intervals or adding mid-session prompts.';
+}
+
+function computeSessionAnalytics(sessionLogs: HistoryLog[], sessionRuns: HistoryRun[]): SessionAnalytics {
+  const uniqueStudents = new Map<string, Set<string>>();
+  const uniqueRunKeys = new Set<string>();
+  const runStartById = new Map(sessionRuns.map((run) => [run.id, new Date(run.started_at).getTime()]));
+  const delaySamples: number[] = [];
+
+  sessionLogs.forEach((log) => {
+    const studentKey = log.student_id?.trim() || log.student_name.trim().toLowerCase();
+    const runKey = log.run_id ?? 'legacy';
+    const studentRuns = uniqueStudents.get(studentKey) ?? new Set<string>();
+    studentRuns.add(runKey);
+    uniqueStudents.set(studentKey, studentRuns);
+    uniqueRunKeys.add(runKey);
+
+    if (log.run_id && runStartById.has(log.run_id)) {
+      const delayMs = new Date(log.submitted_at).getTime() - (runStartById.get(log.run_id) ?? 0);
+      if (delayMs >= 0) {
+        delaySamples.push(delayMs / 1000);
+      }
+    }
+  });
+
+  const studentCount = uniqueStudents.size;
+  const checkpointCount = sessionRuns.length > 0 ? sessionRuns.length : uniqueRunKeys.size;
+
+  if (!studentCount || !checkpointCount) {
+    const base = {
+      attendancePercent: 0,
+      stillThereScore: 0,
+      missingCheckpoints: 0,
+      completedAll: 0,
+      missedOne: 0,
+      missedTwoPlus: 0,
+      avgDelaySeconds: null,
+      engagementRating: 'Low' as const
+    };
+
+    return {
+      ...base,
+      summary: buildSummary(base)
+    };
+  }
+
+  let completedAll = 0;
+  let missedOne = 0;
+  let missedTwoPlus = 0;
+
+  uniqueStudents.forEach((runSet) => {
+    const attendedCount = runSet.size;
+    const missedCount = Math.max(0, checkpointCount - attendedCount);
+
+    if (missedCount === 0) {
+      completedAll += 1;
+      return;
+    }
+
+    if (missedCount === 1) {
+      missedOne += 1;
+      return;
+    }
+
+    missedTwoPlus += 1;
+  });
+
+  const expectedLogs = studentCount * checkpointCount;
+  const actualLogs = Math.min(sessionLogs.length, expectedLogs);
+  const missingCheckpoints = Math.max(0, expectedLogs - actualLogs);
+  const attendancePercent = Math.round((actualLogs / expectedLogs) * 100);
+  const checkpointCompletionPercent = Math.round((completedAll / studentCount) * 100);
+  const stillThereScore = Math.round(attendancePercent * 0.75 + checkpointCompletionPercent * 0.25);
+  const avgDelaySeconds = delaySamples.length ? delaySamples.reduce((sum, current) => sum + current, 0) / delaySamples.length : null;
+  const engagementRating = stillThereScore >= 85 ? 'High' : stillThereScore >= 65 ? 'Medium' : 'Low';
+
+  const base: Omit<SessionAnalytics, 'summary'> = {
+    attendancePercent,
+    stillThereScore,
+    missingCheckpoints,
+    completedAll,
+    missedOne,
+    missedTwoPlus,
+    avgDelaySeconds,
+    engagementRating
+  };
+
+  return {
+    ...base,
+    summary: buildSummary(base)
+  };
+}
+
 export function SessionHistoryAccordion({ sessions, logs, runs }: SessionHistoryAccordionProps) {
   const [expandedSessionId, setExpandedSessionId] = useState<string | null>(null);
   const [selectedRunBySession, setSelectedRunBySession] = useState<Record<string, string>>({});
@@ -295,6 +423,7 @@ export function SessionHistoryAccordion({ sessions, logs, runs }: SessionHistory
             selectedRunId === legacyRunKey
               ? sessionLogs.filter((log) => !log.run_id)
               : logsByRun.get(selectedRunId) ?? [];
+          const analytics = computeSessionAnalytics(sessionLogs, sessionRuns);
           const isExpanded = expandedSessionId === session.id;
 
           return (
@@ -499,7 +628,59 @@ export function SessionHistoryAccordion({ sessions, logs, runs }: SessionHistory
                       </div>
                     </div>
 
-                    <div className="min-h-[260px] rounded-2xl border border-slate-300 bg-slate-200/70" />
+                    <div className="overflow-hidden rounded-2xl border border-slate-300 bg-slate-200/70">
+                      <div className="border-b border-slate-300/70 px-4 py-3">
+                        <p className="text-center text-lg font-extrabold uppercase tracking-wide text-brand-600">Session - Analytics</p>
+                      </div>
+
+                      <div className="space-y-2 px-4 py-4 text-sm">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="font-semibold uppercase tracking-wide text-slate-700">Attendance</p>
+                          <p className="font-bold text-brand-700">{analytics.attendancePercent}%</p>
+                        </div>
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="font-semibold uppercase tracking-wide text-slate-700">Missing Checkpoints</p>
+                          <p className="font-bold text-brand-700">{analytics.missingCheckpoints}</p>
+                        </div>
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="font-semibold uppercase tracking-wide text-slate-700">Engagement Rating</p>
+                          <p
+                            className={cn(
+                              'font-bold uppercase',
+                              analytics.engagementRating === 'High' && 'text-emerald-600',
+                              analytics.engagementRating === 'Medium' && 'text-amber-600',
+                              analytics.engagementRating === 'Low' && 'text-rose-500'
+                            )}
+                          >
+                            {analytics.engagementRating}
+                          </p>
+                        </div>
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="font-semibold uppercase tracking-wide text-slate-700">Still There Score</p>
+                          <p className="font-bold text-brand-700">{analytics.stillThereScore}/100</p>
+                        </div>
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="font-semibold uppercase tracking-wide text-slate-700">Completed All Checkpoints</p>
+                          <p className="font-bold text-brand-700">{analytics.completedAll}</p>
+                        </div>
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="font-semibold uppercase tracking-wide text-slate-700">Missed 1 Checkpoint</p>
+                          <p className="font-bold text-brand-700">{analytics.missedOne}</p>
+                        </div>
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="font-semibold uppercase tracking-wide text-slate-700">Missed 2+ Checkpoints</p>
+                          <p className="font-bold text-brand-700">{analytics.missedTwoPlus}</p>
+                        </div>
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="font-semibold uppercase tracking-wide text-slate-700">Avg Check-In Delay</p>
+                          <p className="font-bold text-brand-700">{formatDelay(analytics.avgDelaySeconds)}</p>
+                        </div>
+                      </div>
+
+                      <div className="mx-4 mb-4 rounded-xl bg-white/60 px-3 py-3 text-center text-sm font-semibold leading-snug text-brand-700">
+                        AI Summary: {analytics.summary}
+                      </div>
+                    </div>
                   </div>
                 </div>
               ) : null}
